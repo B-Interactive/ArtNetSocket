@@ -96,10 +96,10 @@ class ArtNetSocket extends EventDispatcher {
     /**
      * Send ArtPoll (discovery) packet to a network segment.
      * Use broadcast address (e.g., 255.255.255.255) for all nodes.
-     * @param host Destination IP (broadcast for discovery)
+     * @param host Destination IP (default "255.255.255.255" for broadcast)
      * @param port UDP port (default 6454)
      */
-    public function sendPoll(host:String, port:Int = 6454):Void {
+    public function sendPoll(host:String = "255.255.255.255", port:Int = 6454):Void {
         var data = ArtNetHelper.encodePoll();
         send(data, host, port);
     }

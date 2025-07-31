@@ -40,7 +40,7 @@ socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(e) {
 });
 
 // Send ArtPoll (broadcast discovery request)
-socket.sendPoll("255.255.255.255");
+socket.sendPoll();
 
 // Send DMX to a node
 var dmx = {
