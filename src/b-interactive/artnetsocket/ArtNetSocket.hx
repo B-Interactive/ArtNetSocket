@@ -51,7 +51,7 @@ class ArtNetSocket extends EventDispatcher {
      * Binds and opens a socket on the specified UDP port.
      * @param port UDP port (default for Art-Net is 6454)
      */
-    public function new(port:Int) {
+    public function new(port:Int = 6454) {
         super();
         this.port = port;
         #if (air || flash)
