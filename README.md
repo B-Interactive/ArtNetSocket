@@ -1,11 +1,11 @@
-# ArtNetSocket
+# ArtNetSocket for Haxe
 
-Cross-platform, event-driven UDP socket for Art-Net and other UDP protocols, designed for Haxe/OpenFL projects.
+Cross-platform, event-driven UDP socket for Art-Net and other UDP protocols, designed for Haxe, optionally leveraging OpenFL for desktop AIR/Flash support.
 
 ## Features
 
 - **Native support**: C++, HashLink, Neko
-- **AIR/Flash support**: Uses `openfl.net.DatagramSocket`
+- **AIR/Flash support**: Uses OpenFL's `openfl.net.DatagramSocket`
 - **Threaded polling**: On native, uses a background thread for non-blocking receive
 - **Custom events**: Dispatches data and error events for easy integration
 
