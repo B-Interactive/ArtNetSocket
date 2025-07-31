@@ -1,6 +1,6 @@
 # ArtNetSocket for Haxe
 
-Cross-platform, event-driven UDP socket for Art-Net, designed for Haxe, optionally leveraging OpenFL for desktop AIR/Flash support.
+Cross-platform, event-driven UDP socket for Art-Net, designed for Haxe with OpenFL.
 
 ## Features
 
