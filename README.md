@@ -1,4 +1,4 @@
-# ArtNetSocket.hx
+# ArtNetSocket
 
 Cross-platform, event-driven UDP socket for Art-Net and other UDP protocols, designed for Haxe/OpenFL projects.
 
@@ -51,7 +51,7 @@ MIT License (see [LICENSE](LICENSE)).
 
 ## Attribution
 
-This implementation is a cleaned up and extended version based on:
+This implementation is a simplified Haxe port based on:
 - https://github.com/jahewson/ArtNetSocket
 
 See [NOTICE](NOTICE) for further details.
