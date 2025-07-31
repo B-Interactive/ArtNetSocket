@@ -1,4 +1,4 @@
-# ArtNetSocket.hx
+# ArtNetSocket for Haxe
 
 An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
 
