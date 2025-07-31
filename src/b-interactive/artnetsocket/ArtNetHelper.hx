@@ -124,6 +124,82 @@ class ArtNetHelper {
     }
 
     /**
+    * Helper to create a valid ArtDMXPacket with an easy channel/value API.
+    *
+    * Usage examples:
+    *   // Set channel 1 to 255, channel 2 to 128 (rest zero)
+    *   var pkt = ArtNetHelper.makeDMXPacket({values: [{channel: 1, value: 255}, {channel: 2, value: 128}]});
+    *
+    *   // Using a map (object) for sparse values:
+    *   var pkt = ArtNetHelper.makeDMXPacket({map: { 1: 255, 10: 99 }});
+    *
+    *   // Using a full array (channel 1 = array[0]):
+    *   var pkt = ArtNetHelper.makeDMXPacket({array: [255,128,0,0,0]});
+    *
+    *   // Using raw Bytes
+    *   var pkt = ArtNetHelper.makeDMXPacket({data: bytes});
+    */
+    public static function makeDMXPacket(params: {
+        ?universe:Int,
+        ?length:Int,
+        ?protocolVersion:Int,
+        ?sequence:Int,
+        ?physical:Int,
+        ?values:Array<{channel:Int, value:Int}>,
+        ?map:Dynamic<Int>,
+        ?array:Array<Int>,
+        ?data:Bytes
+    }):ArtDMXPacket {
+        var universe        = params.universe        ?? 0;
+        var protocolVersion = params.protocolVersion ?? 14;
+        var sequence        = params.sequence        ?? 0;
+        var physical        = params.physical        ?? 0;
+
+        // --- Priority: data > array > (values/map) > default ---
+        var data:Bytes = null;
+        var length:Int = params.length ?? 512;
+
+        if (params.data != null) {
+            data = params.data;
+            length = params.length ?? data.length;
+            if (data.length < length) throw "ArtDMXPacket: Provided data buffer too short";
+        } else if (params.array != null) {
+            length = params.array.length;
+            if (length < 1 || length > 512) throw "ArtDMXPacket: DMX length must be 1-512";
+            data = Bytes.alloc(length);
+            for (i in 0...length) data.set(i, params.array[i]);
+        } else {
+            if (length < 1 || length > 512) throw "ArtDMXPacket: DMX length must be 1-512";
+            data = Bytes.alloc(length);
+            // Fill from values (array of {channel, value})
+            if (params.values != null) {
+                for (entry in params.values) {
+                    if (entry.channel >= 1 && entry.channel <= length)
+                        data.set(entry.channel - 1, entry.value);
+                }
+            }
+            // Fill from map (object with channel:value)
+            if (params.map != null) {
+                for (field in Reflect.fields(params.map)) {
+                    var ch = Std.parseInt(field);
+                    var value = Reflect.field(params.map, field);
+                    if (ch != null && ch >= 1 && ch <= length)
+                        data.set(ch - 1, value);
+                }
+            }
+        }
+
+        return {
+            protocolVersion: protocolVersion,
+            sequence: sequence,
+            physical: physical,
+            universe: universe,
+            length: length,
+            data: data
+        };
+    }
+
+    /**
      * Inspects received data and parses it as a known Art-Net packet type if possible.
      * @param data Incoming UDP data
      * @return {type:String, packet:Dynamic} or null if not recognized

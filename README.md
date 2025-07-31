@@ -5,7 +5,7 @@ An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
 ---
 
 **Jump to:**  
-[Features](#features) | [Usage Example](#usage-example) | [Event Types](#event-types) | [OpenFL Target Compatibility](#openfl-target-compatibility) | [Minimum Haxe and OpenFL Versions](#minimum-haxe-and-openfl-versions) | [Art-Net Protocol Compatibility](#art-net-protocol-compatibility) | [Web Browser UDP Support](#web-browser-udp-support) | [License](#license)
+[Features](#features) | [Usage Example](#usage-example) | [Simplified DMX Packet Helper](#simplified-dmx-packet-helper) | [Event Types](#event-types) | [OpenFL Target Compatibility](#openfl-target-compatibility) | [Minimum Haxe and OpenFL Versions](#minimum-haxe-and-openfl-versions) | [Art-Net Protocol Compatibility](#art-net-protocol-compatibility) | [Web Browser UDP Support](#web-browser-udp-support) | [License](#license)
 
 ---
 
@@ -42,16 +42,29 @@ socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(e) {
 // Send ArtPoll (broadcast discovery request)
 socket.sendPoll();
 
-// Send DMX to a node
-var dmx = {
-  protocolVersion: 14,
-  sequence: 1,
-  physical: 0,
+// Send a DMX packet with just channels 1 and 5 set (all others zero)
+var dmx = ArtNetHelper.makeDMXPacket({
   universe: 0,
-  length: 512,
-  data: Bytes.alloc(512)
-};
+  values: [
+    { channel: 1, value: 255 },
+    { channel: 5, value: 42 }
+  ]
+});
 socket.sendDMX(dmx, "192.168.1.100");
+
+// Or send a block of DMX values using an array (dense, 0-based: array[0] = channel 1)
+var dmxBlock = ArtNetHelper.makeDMXPacket({
+  universe: 1,
+  array: [255, 128, 0, 0, 42] // Channels 1-5
+});
+socket.sendDMX(dmxBlock, "192.168.1.100");
+
+// Or set a few DMX slots using a map/object (all others zero)
+var dmxMap = ArtNetHelper.makeDMXPacket({
+  universe: 2,
+  map: { 1: 100, 4: 200 }
+});
+socket.sendDMX(dmxMap, "192.168.1.100");
 
 // Handle errors
 socket.addEventListener(ArtNetSocket.ERROR, function(e) {
@@ -59,12 +72,60 @@ socket.addEventListener(ArtNetSocket.ERROR, function(e) {
 });
 ```
 
+---
+
+## Simplified DMX Packet Helper
+
+You can easily construct DMX packets using the `ArtNetHelper.makeDMXPacket()` function, which supports several user-friendly ways to specify channel data:
+
+- **Dense array** (`array: [Int]`):  
+  Set DMX values for channels 1..N where `array[0]` is channel 1, `array[1]` is channel 2, etc. The packet length will be `array.length`.
+  ```haxe
+  // Sets channel 1 to 255, 2 to 128, 3 to 0, 4 to 0, 5 to 42
+  var pkt = ArtNetHelper.makeDMXPacket({array: [255, 128, 0, 0, 42]});
+  ```
+
+- **Sparse channel/value list** (`values: [{channel, value}]`):  
+  Set specific DMX channels by index (1-based), all others are zero.
+  ```haxe
+  var pkt = ArtNetHelper.makeDMXPacket({
+    values: [{channel: 1, value: 255}, {channel: 5, value: 42}]
+  });
+  ```
+
+- **Map/object** (`map: {channel: value}`):  
+  Like `values`, but as an object with channel numbers as keys; all others zero.
+  ```haxe
+  var pkt = ArtNetHelper.makeDMXPacket({map: { 1: 100, 4: 200 }});
+  ```
+
+- **Raw Bytes** (`data: Bytes`):  
+  Use an existing `Bytes` object. Highest priority; all other options ignored.
+  ```haxe
+  var bytes = Bytes.alloc(3); bytes.set(0, 9); bytes.set(1, 8); bytes.set(2, 7);
+  var pkt = ArtNetHelper.makeDMXPacket({data: bytes});
+  ```
+
+**Other options:**
+- `universe`: Art-Net universe (default 0)
+- `length`: Number of DMX slots (default 512; if using array or data, inferred)
+- `protocolVersion`: Art-Net protocol version (default 14)
+- `sequence`: Sequence number (default 0)
+- `physical`: Physical port (default 0)
+
+**Priority:**  
+If you provide `data`, it is used as-is. If you provide `array`, it is used next. Otherwise, `values` and `map` are used to fill a zeroed buffer of length `length` (default 512).
+
+---
+
 ## Event Types
 
 - `ArtNetSocket.ARTDMX` (`ArtDMXEvent`): DMX data received
 - `ArtNetSocket.ARTPOLLREPLY` (`ArtPollReplyEvent`): Node discovery reply
 - `ArtNetSocket.DATA` (`ArtNetDataEvent`): Unparsed UDP data
 - `ArtNetSocket.ERROR` (`ArtNetErrorEvent`): Socket error
+
+---
 
 ## OpenFL Target Compatibility
 
@@ -86,6 +147,8 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 - JavaScript/HTML5 targets are not supported due to browser security restrictions on UDP.
 - Java, Android, and iOS support is untested in production; please report your results or PRs!
 
+---
+
 ## Minimum Haxe and OpenFL Versions
 
 | Library | Minimum Version | Recommended Version         |
@@ -95,6 +158,8 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 
 - The library uses modern Haxe types (`haxe.io.Bytes`, etc.) and OpenFL event APIs.
 - Haxe 3.x and OpenFL 7.x or older will require changes and are not officially supported.
+
+---
 
 ## Art-Net Protocol Compatibility
 
@@ -108,6 +173,8 @@ This library is designed to interoperate with all mainstream Art-Net II, III, an
 **Summary:**  
 For standard DMX transport and node discovery, this library is compatible with any Art-Net 2/3/4 node or controller you are likely to encounter.
 
+---
+
 ## Web Browser UDP Support
 
 **General UDP networking is not available in web browsers.**  
@@ -117,6 +184,8 @@ Browsers do not expose raw UDP socket APIs to user code for security reasons.
 - **WebTransport (UDP/QUIC)** is not a general UDP socket and only works with compatible servers.
 - **No browser (Chrome, Firefox, Safari, Edge, etc.) supports arbitrary UDP for Art-Net or similar protocols.**
 - **Workaround:** Use a native application or a WebSocket-to-UDP bridge for browser-based tools.
+
+---
 
 ## License
 
