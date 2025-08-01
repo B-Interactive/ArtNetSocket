@@ -130,8 +130,14 @@ class ArtNetHelper {
     *   // Set channel 1 to 255, channel 2 to 128 (rest zero)
     *   var pkt = ArtNetHelper.makeDMXPacket({values: [{channel: 1, value: 255}, {channel: 2, value: 128}]});
     *
-    *   // Using a map (object) for sparse values:
-    *   var pkt = ArtNetHelper.makeDMXPacket({map: { 1: 255, 10: 99 }});
+    *   // Using a map (dictionary):
+    *   var channelMap = new Map<Int, Int>();
+    *   channelMap.set(1, 100);
+    *   channelMap.set(4, 200);
+    *   var dmxPacket = ArtNetHelper.makeDMXPacket({
+    *     universe: 2,
+    *     map: channelMap
+    *   });
     *
     *   // Using a full array (channel 1 = array[0]):
     *   var pkt = ArtNetHelper.makeDMXPacket({array: [255,128,0,0,0]});
@@ -180,9 +186,7 @@ class ArtNetHelper {
             }
             // Fill from map (object with channel:value)
             if (params.map != null) {
-                for (field in Reflect.fields(params.map)) {
-                    var ch = Std.parseInt(field);
-                    var value = Reflect.field(params.map, field);
+                for (ch => value in params.map) {
                     if (ch != null && ch >= 1 && ch <= length)
                         data.set(ch - 1, value);
                 }

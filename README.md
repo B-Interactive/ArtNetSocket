@@ -65,10 +65,13 @@ var dmxBlock = ArtNetHelper.makeDMXPacket({
 });
 socket.sendDMX(dmxBlock, "192.168.1.100");
 
-// Or set a few DMX slots using a map/object (all others zero)
-var dmxMap = ArtNetHelper.makeDMXPacket({
+// Or set a few DMX slots using a map/dictonary (all others zero)
+var channelMap = new Map<Int, Int>();
+channelMap.set(1, 100);
+channelMap.set(4, 200);
+var dmxPacket = ArtNetHelper.makeDMXPacket({
   universe: 2,
-  map: { 1: 100, 4: 200 }
+  map: channelMap
 });
 socket.sendDMX(dmxMap, "192.168.1.100");
 
@@ -95,20 +98,21 @@ You can easily construct DMX packets using the `ArtNetHelper.makeDMXPacket()` fu
   Set specific DMX channels by index (1-based), all others are zero.
   ```haxe
   var pkt = ArtNetHelper.makeDMXPacket({
-    values: [{channel: 1, value: 255}, {channel: 5, value: 42}]
+    values: [ {channel: 1, value: 255}, {channel: 2, value: 128}, {channel: 5, value: 42} ]
   });
   ```
 
 - **Map/object** (`map: {channel: value}`):  
   Like `values`, but as an object with channel numbers as keys; all others zero.
   ```haxe
-  var pkt = ArtNetHelper.makeDMXPacket({map: { 1: 100, 4: 200 }});
+  var pkt = ArtNetHelper.makeDMXPacket([ 1 => 255, 2 => 128, 5 => 42 ]);
   ```
-
+  
+  
 - **Raw Bytes** (`data: Bytes`):  
   Use an existing `Bytes` object. Highest priority; all other options ignored.
   ```haxe
-  var bytes = Bytes.alloc(3); bytes.set(0, 9); bytes.set(1, 8); bytes.set(2, 7);
+  var bytes = Bytes.alloc(3); bytes.set(1, 255); bytes.set(2, 128); bytes.set(5, 42);
   var pkt = ArtNetHelper.makeDMXPacket({data: bytes});
   ```
 
