@@ -1,6 +1,7 @@
 package binteractive.artnetsocket;
 
 import haxe.io.Bytes;
+import openfl.events.Event;
 import binteractive.artnetsocket.ArtNetTypes;
 
 /**
