@@ -1,0 +1,11 @@
+{
+  "name": "artnetsocket",
+  "url": "https://github.com/B-Interactive/ArtNetSocket",
+  "license": "MIT",
+  "tags": ["network", "artnet", "socket"],
+  "description": "A Haxe + OpenFL library for ArtNet socket communication.",
+  "version": "0.0.1",
+  "classPath": "src",
+  "releasenote": "Initial release.",
+  "contributors": ["B-Interactive"]
+}
