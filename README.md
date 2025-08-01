@@ -20,7 +20,7 @@ An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
 ## Installation
 
 ```bash
-haxelib git hxmpv https://github.com/B-Interactive/artnetsocket
+haxelib git artnetsocket https://github.com/B-Interactive/artnetsocket
 ```
 
 ## Usage Example
