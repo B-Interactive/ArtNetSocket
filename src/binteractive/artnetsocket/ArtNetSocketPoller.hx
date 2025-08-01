@@ -62,27 +62,27 @@ class ArtNetSocketPoller {
      * It receives UDP packets and uses sendProgress to communicate with the main thread.
      */
     private function pollLoop(state:Dynamic, output:WorkOutput):Void {
-    var bufferSize = 1024;
-    var buffer = Bytes.alloc(bufferSize);
-    while (running) {
-        try {
-            while (true) {
-                // Allocate a new buffer for each read to avoid data overwrite
-                buffer = Bytes.alloc(bufferSize);
-                var result = socket.readFrom(buffer);
-                if (result == null) break;
-                var host = result.host.toString();
-                var port = result.port;
-                // result.data is a Bytes slice of the buffer, or just pass buffer with length
-                output.sendProgress({ data: buffer.sub(0, result.length), host: host, port: port });
+        var bufferSize = 1024;
+        var buffer = Bytes.alloc(bufferSize);
+        var addr = new sys.net.Address();
+        while (running) {
+            try {
+                while (true) {
+                    // addr will be filled with the sender's address (remote host/port)
+                    var bytesRead = socket.readFrom(buffer, 0, bufferSize, addr);
+                    if (bytesRead <= 0) break;
+                    var host = addr.host;
+                    var port = addr.port;
+                    var data = buffer.sub(0, bytesRead);
+                    output.sendProgress({ data: data, host: host, port: port });
+                }
+            } catch (e:Dynamic) {
+                output.sendError(e);
             }
-        } catch (e:Dynamic) {
-            output.sendError(e);
+            Thread.sleep(0.01);
         }
-        Thread.sleep(0.01);
+        output.sendComplete(null);
     }
-    output.sendComplete(null);
-}
 
     /**
      * Attaches listeners to the thread pool for progress (data received) and error events.
