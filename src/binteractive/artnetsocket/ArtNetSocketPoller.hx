@@ -64,7 +64,7 @@ class ArtNetSocketPoller {
         while (running) {
             try {
                 while (true) {
-                    var result = socket.recvFrom(1024);
+                    var result = socket.readFrom(1024);
                     if (result == null) break;
                     var host = result.host.toString();
                     var port = result.port;
