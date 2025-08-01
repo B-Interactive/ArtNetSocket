@@ -4,8 +4,8 @@ import lime.system.ThreadPool;
 import lime.system.WorkOutput;
 import sys.net.UdpSocket;
 import sys.net.Host;
-import sys.thread.Thread;
 import haxe.io.Bytes;
+import haxe.Timer;
 import openfl.events.EventDispatcher;
 import openfl.events.Event;
 import binteractive.artnetsocket.ArtNetSocketEvents;
@@ -79,7 +79,7 @@ class ArtNetSocketPoller {
             } catch (e:Dynamic) {
                 output.sendError(e);
             }
-            Thread.sleep(0.01);
+            haxe.Timer.sleep(0.01);
         }
         output.sendComplete(null);
     }
