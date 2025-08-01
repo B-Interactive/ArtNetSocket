@@ -5,7 +5,7 @@ An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
 ---
 
 **Jump to:**  
-[Features](#features) | [Usage Example](#usage-example) | [Simplified DMX Packet Helper](#simplified-dmx-packet-helper) | [Event Types](#event-types) | [OpenFL Target Compatibility](#openfl-target-compatibility) | [Minimum Haxe and OpenFL Versions](#minimum-haxe-and-openfl-versions) | [Art-Net Protocol Compatibility](#art-net-protocol-compatibility) | [Web Browser UDP Support](#web-browser-udp-support) | [License](#license)
+[Features](#features) | [Installation](#installation) | [Usage Example](#usage-example) | [Simplified DMX Packet Helper](#simplified-dmx-packet-helper) | [Event Types](#event-types) | [OpenFL Target Compatibility](#openfl-target-compatibility) | [Minimum Haxe and OpenFL Versions](#minimum-haxe-and-openfl-versions) | [Art-Net Protocol Compatibility](#art-net-protocol-compatibility) | [Web Browser UDP Support](#web-browser-udp-support) | [License](#license)
 
 ---
 
@@ -16,6 +16,12 @@ An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
 - **Receive/parse ArtPollReply** (discovery replies, exposes node info)
 - **Event-driven API:** Fires `ArtDMXEvent`, `ArtPollReplyEvent`, `ArtNetDataEvent`, `ArtNetErrorEvent`
 - **Native and AIR/Flash:** Uses polling thread for native targets; event-based for AIR/Flash
+
+## Installation
+
+```bash
+haxelib git hxmpv https://github.com/B-Interactive/artnetsocket
+```
 
 ## Usage Example
 
