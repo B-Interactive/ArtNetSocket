@@ -2,40 +2,83 @@ package binteractive.artnetsocket;
 
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
+import haxe.ds.Map;
+import openfl.utils.ByteArray;
 
 /**
- * ArtNetHelper
- *
- * Provides static methods to serialize and deserialize Art-Net packet types:
- * - ArtDMX (DMX data, send/receive)
- * - ArtPoll (discovery request, send only)
- * - ArtPollReply (discovery response, receive only)
- *
+ * Art-Net protocol helper for DMX, Poll, and PollReply packets.
  * All buffers are Little Endian per Art-Net specification.
+ * Compatible with Haxe 4.3.7 and OpenFL 9.4.1.
  */
+typedef ArtDMXPacket = {
+    var protocolVersion:Int;
+    var sequence:Int;
+    var physical:Int;
+    var universe:Int;
+    var length:Int;
+    var data:Bytes;
+}
+
+typedef ArtPollReplyPacket = {
+    var ip:String;
+    var port:Int;
+    var version:Int;
+    var shortName:String;
+    var longName:String;
+    var nodeReport:String;
+    var oem:Int;
+    var numPorts:Int;
+    var portTypes:Array<Int>;
+    var goodInput:Array<Int>;
+    var goodOutput:Array<Int>;
+    var swIn:Array<Int>;
+    var swOut:Array<Int>;
+    var mac:Array<Int>;
+    var bindIp:String;
+    var style:Int;
+}
+
 class ArtNetHelper {
     /** Art-Net Protocol ID (8 bytes, zero-padded) */
-    public static inline var ARTNET_ID:String = "Art-Net\x00";
-    public static inline var OP_POLL:Int = 0x2000;
-    public static inline var OP_POLLREPLY:Int = 0x2100;
-    public static inline var OP_DMX:Int = 0x5000;
+    public static final ARTNET_ID:String = "Art-Net\x00";
+    public static final OP_POLL:Int = 0x2000;
+    public static final OP_POLLREPLY:Int = 0x2100;
+    public static final OP_DMX:Int = 0x5000;
+
+    /**
+     * Write a 16-bit integer (short) in little-endian order.
+     * OpenFL's ByteArray uses little-endian by default.
+     */
+    private static function writeUInt16LE(ba:ByteArray, value:Int):Void {
+        ba.writeByte(value & 0xFF);
+        ba.writeByte((value >> 8) & 0xFF);
+    }
+
+    /**
+     * Read a 16-bit unsigned integer (short) in little-endian order.
+     */
+    private static function readUInt16LE(bytes:Bytes, pos:Int):Int {
+        return bytes.get(pos) | (bytes.get(pos + 1) << 8);
+    }
 
     /**
      * Serializes an ArtDMXPacket into a Bytes buffer.
-     * @param pkt ArtDMXPacket structure (see typedef)
+     * @param pkt ArtDMXPacket structure
      * @return Bytes ready for sending via UDP
      */
     public static function encodeDMX(pkt:ArtDMXPacket):Bytes {
-        var buf = new BytesBuffer();
-        buf.addString(ARTNET_ID); // 8 bytes: "Art-Net\0"
-        buf.addInt16(OP_DMX);     // OpCode: ArtDMX
-        buf.addInt16(pkt.protocolVersion); // Protocol version, commonly 14
-        buf.addByte(pkt.sequence);
-        buf.addByte(pkt.physical);
-        buf.addInt16(pkt.universe);
-        buf.addInt16(pkt.length);
-        buf.add(pkt.data.sub(0, pkt.length));
-        return buf.getBytes();
+        var ba = new ByteArray();
+        ba.endian = "littleEndian";
+        ba.writeUTFBytes(ARTNET_ID); // 8 bytes: "Art-Net\0"
+        writeUInt16LE(ba, OP_DMX); // OpCode: ArtDMX
+        writeUInt16LE(ba, pkt.protocolVersion); // Protocol version
+        ba.writeByte(pkt.sequence);
+        ba.writeByte(pkt.physical);
+        writeUInt16LE(ba, pkt.universe);
+        writeUInt16LE(ba, pkt.length);
+        ba.writeBytes(Bytes.ofData(pkt.data.getData()), 0, pkt.length);
+        ba.position = 0;
+        return Bytes.ofData(ba);
     }
 
     /**
@@ -46,14 +89,14 @@ class ArtNetHelper {
     public static function decodeDMX(data:Bytes):Null<ArtDMXPacket> {
         if (data.length < 18) return null;
         if (data.sub(0,8).toString() != ARTNET_ID) return null;
-        var opcode = data.getUInt16(8);
+        var opcode = readUInt16LE(data, 8);
         if (opcode != OP_DMX) return null;
-        var len = data.getUInt16(16);
+        var len = readUInt16LE(data, 16);
         return {
-            protocolVersion: data.getUInt16(10),
+            protocolVersion: readUInt16LE(data, 10),
             sequence: data.get(12),
             physical: data.get(13),
-            universe: data.getUInt16(14),
+            universe: readUInt16LE(data, 14),
             length: len,
             data: data.sub(18, len)
         };
@@ -64,13 +107,15 @@ class ArtNetHelper {
      * @return Bytes ready for sending via UDP
      */
     public static function encodePoll():Bytes {
-        var buf = new BytesBuffer();
-        buf.addString(ARTNET_ID); // 8 bytes
-        buf.addInt16(OP_POLL);
-        buf.addInt16(14); // Protocol version
-        buf.addByte(0);   // TalkToMe
-        buf.addByte(0);   // Priority
-        return buf.getBytes();
+        var ba = new ByteArray();
+        ba.endian = "littleEndian";
+        ba.writeUTFBytes(ARTNET_ID); // 8 bytes
+        writeUInt16LE(ba, OP_POLL);
+        writeUInt16LE(ba, 14); // Protocol version
+        ba.writeByte(0);   // TalkToMe
+        ba.writeByte(0);   // Priority
+        ba.position = 0;
+        return Bytes.ofData(ba);
     }
 
     /**
@@ -81,26 +126,25 @@ class ArtNetHelper {
     public static function decodePollReply(data:Bytes):Null<ArtPollReplyPacket> {
         if (data.length < 239) return null;
         if (data.sub(0,8).toString() != ARTNET_ID) return null;
-        var opcode = data.getUInt16(8);
+        var opcode = readUInt16LE(data, 8);
         if (opcode != OP_POLLREPLY) return null;
 
         // ArtPollReply field offsets per Art-Net 4 specification
         var ip = '${data.get(10)}.${data.get(11)}.${data.get(12)}.${data.get(13)}';
-        var port = data.getUInt16(14);
-        var version = data.getUInt16(16);
+        var port = readUInt16LE(data, 14);
+        var version = readUInt16LE(data, 16);
         var shortName = readZString(data, 26, 18);
         var longName = readZString(data, 44, 64);
         var nodeReport = readZString(data, 108, 64);
         var mac = [for(i in 201...207) data.get(i)];
         var bindIp = '${data.get(198)}.${data.get(199)}.${data.get(200)}.${data.get(201)}';
-        var oem = data.getUInt16(174);
-        var numPorts = data.getUInt16(172);
-        var portTypes:Array<Int> = [];
-        for (i in 174...178) portTypes.push(data.get(i));
-        var goodInput = [for(i in 178...182) data.get(i)];
-        var goodOutput = [for(i in 182...186) data.get(i)];
-        var swIn = [for(i in 186...190) data.get(i)];
-        var swOut = [for(i in 190...194) data.get(i)];
+        var oem = readUInt16LE(data, 174);
+        var numPorts = readUInt16LE(data, 172);
+        var portTypes = [for (i in 174...178) data.get(i)];
+        var goodInput = [for (i in 178...182) data.get(i)];
+        var goodOutput = [for (i in 182...186) data.get(i)];
+        var swIn = [for (i in 186...190) data.get(i)];
+        var swOut = [for (i in 190...194) data.get(i)];
         var style = data.get(213);
 
         return {
@@ -124,44 +168,28 @@ class ArtNetHelper {
     }
 
     /**
-    * Helper to create a valid ArtDMXPacket with an easy channel/value API.
-    *
-    * Usage examples:
-    *   // Set channel 1 to 255, channel 2 to 128 (rest zero)
-    *   var pkt = ArtNetHelper.makeDMXPacket({values: [{channel: 1, value: 255}, {channel: 2, value: 128}]});
-    *
-    *   // Using a map (dictionary):
-    *   var channelMap = new Map<Int, Int>();
-    *   channelMap.set(1, 100);
-    *   channelMap.set(4, 200);
-    *   var dmxPacket = ArtNetHelper.makeDMXPacket({
-    *     universe: 2,
-    *     map: channelMap
-    *   });
-    *
-    *   // Using a full array (channel 1 = array[0]):
-    *   var pkt = ArtNetHelper.makeDMXPacket({array: [255,128,0,0,0]});
-    *
-    *   // Using raw Bytes
-    *   var pkt = ArtNetHelper.makeDMXPacket({data: bytes});
-    */
-    public static function makeDMXPacket(params: {
+     * Helper to create a valid ArtDMXPacket with an easy channel/value API.
+     * You may provide:
+     *   - values: Array<{channel:Int, value:Int}>
+     *   - map: Map<Int, Int>
+     *   - array: Array<Int>
+     *   - data: Bytes
+     */
+    public static function makeDMXPacket(params:{
         ?universe:Int,
         ?length:Int,
         ?protocolVersion:Int,
         ?sequence:Int,
         ?physical:Int,
         ?values:Array<{channel:Int, value:Int}>,
-        ?map:Dynamic<Int>,
+        ?map:Map<Int, Int>,
         ?array:Array<Int>,
         ?data:Bytes
     }):ArtDMXPacket {
-        var universe        = params.universe        ?? 0;
+        var universe = params.universe ?? 0;
         var protocolVersion = params.protocolVersion ?? 14;
-        var sequence        = params.sequence        ?? 0;
-        var physical        = params.physical        ?? 0;
-
-        // --- Priority: data > array > (values/map) > default ---
+        var sequence = params.sequence ?? 0;
+        var physical = params.physical ?? 0;
         var data:Bytes = null;
         var length:Int = params.length ?? 512;
 
@@ -177,18 +205,16 @@ class ArtNetHelper {
         } else {
             if (length < 1 || length > 512) throw "ArtDMXPacket: DMX length must be 1-512";
             data = Bytes.alloc(length);
-            // Fill from values (array of {channel, value})
             if (params.values != null) {
                 for (entry in params.values) {
                     if (entry.channel >= 1 && entry.channel <= length)
                         data.set(entry.channel - 1, entry.value);
                 }
             }
-            // Fill from map (object with channel:value)
             if (params.map != null) {
-                for (ch => value in params.map) {
-                    if (ch != null && ch >= 1 && ch <= length)
-                        data.set(ch - 1, value);
+                for (ch in params.map.keys()) {
+                    var value = params.map.get(ch);
+                    if (ch >= 1 && ch <= length) data.set(ch - 1, value);
                 }
             }
         }
@@ -211,7 +237,7 @@ class ArtNetHelper {
     public static function detectAndParse(data:Bytes):Null<{type:String, packet:Dynamic}> {
         if (data.length < 10) return null;
         if (data.sub(0,8).toString() != ARTNET_ID) return null;
-        var opcode = data.getUInt16(8);
+        var opcode = readUInt16LE(data, 8);
         switch (opcode) {
             case OP_DMX:
                 var pkt = decodeDMX(data);
@@ -236,39 +262,4 @@ class ArtNetHelper {
         while (end < start + maxLen && bytes.get(end) != 0) end++;
         return bytes.sub(start, end - start).toString();
     }
-}
-
-/**
- * ArtDMXPacket: structure for Art-Net DMX data.
- * Only DMX payload up to 'length' bytes is valid.
- */
-typedef ArtDMXPacket = {
-    var protocolVersion:Int;
-    var sequence:Int;
-    var physical:Int;
-    var universe:Int;
-    var length:Int;
-    var data:Bytes;
-}
-
-/**
- * ArtPollReplyPacket: structure for Art-Net discovery reply.
- */
-typedef ArtPollReplyPacket = {
-    var ip:String;
-    var port:Int;
-    var version:Int;
-    var shortName:String;
-    var longName:String;
-    var nodeReport:String;
-    var oem:Int;
-    var numPorts:Int;
-    var portTypes:Array<Int>;
-    var goodInput:Array<Int>;
-    var goodOutput:Array<Int>;
-    var swIn:Array<Int>;
-    var swOut:Array<Int>;
-    var mac:Array<Int>;
-    var bindIp:String;
-    var style:Int;
 }
