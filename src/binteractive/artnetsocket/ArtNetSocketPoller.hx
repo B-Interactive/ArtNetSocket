@@ -17,11 +17,11 @@ import binteractive.artnetsocket.ArtNetSocketEvents;
  * Encapsulates all background network polling and threadsafe event dispatch.
  */
 class ArtNetSocketPoller {
-    private var socket:UdpSocket;
-    private var running:Bool = false;
-    private var threadPool:ThreadPool;
-    private var pollJobID:Int = -1;
-    private var dispatcher:EventDispatcher;
+    private var socket:UdpSocket; // The UDP socket to poll for incoming data
+    private var running:Bool = false; // Flag indicating whether polling is active
+    private var threadPool:ThreadPool; // ThreadPool for running the polling job in a background thread
+    private var pollJobID:Int = -1; // ID of the current polling job in the ThreadPool
+    private var dispatcher:EventDispatcher; // Event dispatcher for forwarding UDP data events
 
     /**
      * Constructor.
@@ -40,9 +40,10 @@ class ArtNetSocketPoller {
      * Safe to call multiple times; will not duplicate jobs.
      */
     public function start():Void {
-        if (running) return;
+        if (running) return; // Already running? Do nothing.
         running = true;
         attachThreadPoolListeners();
+        // Start the polling loop in the ThreadPool
         pollJobID = threadPool.run(pollLoop, {});
     }
 
@@ -50,9 +51,9 @@ class ArtNetSocketPoller {
      * Stops the background polling job and cleans up the thread pool.
      */
     public function stop():Void {
-        running = false;
+        running = false; // Set running flag to false to exit polling loop
         if (threadPool != null && pollJobID != -1) {
-            threadPool.cancelJob(pollJobID);
+            threadPool.cancelJob(pollJobID); // Cancel the polling job
             pollJobID = -1;
         }
     }
@@ -63,25 +64,65 @@ class ArtNetSocketPoller {
      */
     private function pollLoop(state:Dynamic, output:WorkOutput):Void {
         var bufferSize = 1024;
-        var buffer = Bytes.alloc(bufferSize);
+        var buffer = Bytes.alloc(bufferSize); // Buffer for receiving UDP data
         var addr = new sys.net.Address();
+
+        // Try to set the socket to non-blocking mode (if supported)
+        try {
+            socket.setBlocking(false);
+        } catch (e:Dynamic) {
+            // Not supported on some targets; it's safe to ignore
+        }
+
         while (running) {
+            var dataRead = false;
             try {
                 while (true) {
-                    // addr will be filled with the sender's address (remote host/port)
+                    // Read data from the socket; addr will hold sender's address
                     var bytesRead = socket.readFrom(buffer, 0, bufferSize, addr);
-                    if (bytesRead <= 0) break;
-                    var host = addr.host;
-                    var port = addr.port;
-                    var data = buffer.sub(0, bytesRead);
-                    output.sendProgress({ data: data, host: host, port: port });
+                    if (bytesRead <= 0) break; // No data read
+                    dataRead = true;
+                    // Send received data to the main thread using sendProgress
+                    output.sendProgress({
+                        data: buffer.sub(0, bytesRead),
+                        host: addr.host,
+                        port: addr.port
+                    });
                 }
             } catch (e:Dynamic) {
-                output.sendError(e);
+                // EWOULDBLOCK/EAGAIN just means no data available yet
+                if (!isWouldBlockError(e)) {
+                    output.sendError(e); // Report real errors
+                }
             }
-            haxe.Timer.sleep(0.01);
+            // Yield the thread to avoid busy-wait (if supported)
+            yieldThread();
         }
+        // Notify main thread that polling has completed
         output.sendComplete(null);
+    }
+
+    /**
+     * Yield the thread if supported by the target platform,
+     * otherwise this is a no-op (does nothing).
+     */
+    private inline function yieldThread():Void {
+        #if cpp
+        cpp.vm.Thread.yield();
+        #elseif hl
+        hl.Api.yield();
+        #else
+        // No-op for targets that lack yielding
+        #end
+    }
+
+    /**
+     * Returns true if the error corresponds to a non-blocking read
+     * where no data was available (EWOULDBLOCK/EAGAIN).
+     */
+    private function isWouldBlockError(e:Dynamic):Bool {
+        var msg = Std.string(e);
+        return msg.indexOf("EWOULDBLOCK") >= 0 || msg.indexOf("EAGAIN") >= 0;
     }
 
     /**
@@ -89,12 +130,14 @@ class ArtNetSocketPoller {
      * These will dispatch custom events on the provided dispatcher.
      */
     private function attachThreadPoolListeners():Void {
+        // Listen for data received from the polling thread
         threadPool.onProgress.add(function(payload:Dynamic) {
             if (payload != null && payload.data != null && payload.host != null && payload.port != null) {
                 // Use a custom event to forward UDP data to ArtNetSocket
                 dispatcher.dispatchEvent(new ArtNetSocketPollEvent(payload.data, payload.host, payload.port));
             }
         });
+        // Listen for errors from the polling thread
         threadPool.onError.add(function(err) {
             dispatcher.dispatchEvent(new ArtNetErrorEvent(ArtNetSocket.ERROR, Std.string(err)));
         });
@@ -106,9 +149,9 @@ class ArtNetSocketPoller {
  * Not intended to be used directly by library consumers.
  */
 class ArtNetSocketPollEvent extends Event {
-    public var data:Bytes;
-    public var host:String;
-    public var port:Int;
+    public var data:Bytes; // UDP packet data
+    public var host:String; // Sender's host
+    public var port:Int; // Sender's port
     public function new(data:Bytes, host:String, port:Int) {
         super("ArtNetSocketPollEvent", false, false);
         this.data = data;
