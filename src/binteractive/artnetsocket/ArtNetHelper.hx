@@ -15,7 +15,7 @@ import haxe.io.BytesBuffer;
  */
 class ArtNetHelper {
     /** Art-Net Protocol ID (8 bytes, zero-padded) */
-    public static inline var ARTNET_ID:String = "Art-Net\0";
+    public static inline var ARTNET_ID:String = "Art-Net\x00";
     public static inline var OP_POLL:Int = 0x2000;
     public static inline var OP_POLLREPLY:Int = 0x2100;
     public static inline var OP_DMX:Int = 0x5000;
