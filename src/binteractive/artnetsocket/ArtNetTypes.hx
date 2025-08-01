@@ -1,5 +1,7 @@
 package binteractive.artnetsocket;
 
+import haxe.io.Bytes;
+
 typedef ArtDMXPacket = {
     var protocolVersion:Int;
     var sequence:Int;
