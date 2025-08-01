@@ -3,7 +3,6 @@ package binteractive.artnetsocket;
 import openfl.events.EventDispatcher;
 import openfl.events.Event;
 import haxe.io.Bytes;
-import lime.system.Thread;
 import binteractive.artnetsocket.ArtNetHelper;
 
 #if (air || flash)
@@ -14,13 +13,14 @@ import openfl.events.IOErrorEvent;
 import sys.net.UdpSocket;
 import sys.net.Host;
 import openfl.Lib;
+import binteractive.artnetsocket.ArtNetSocketPoller;
 #end
 
 /**
  * ArtNetSocket
  *
  * Cross-platform, event-driven UDP socket tailored for Art-Net (OpenFL/Haxe 4.3+).
- * - Native (C++, HL): Non-blocking with polling thread.
+ * - Native (C++, HL): Non-blocking with polling thread (using ArtNetSocketPoller).
  * - AIR/Flash: Event-driven with DatagramSocket.
  *
  * Fires high-level events for ArtDMX (DMX data), ArtPollReply (discovery),
@@ -37,15 +37,13 @@ class ArtNetSocket extends EventDispatcher {
     public static inline var ERROR:String = "error";               // Event type: ArtNetErrorEvent
 
     #if (air || flash)
-    var socket:DatagramSocket;
+    private var socket:DatagramSocket;
     #else
-    var socket:UdpSocket;
-    var running:Bool = false;
-    var thread:Thread;
-    var dispatcher:EventDispatcher;
+    private var socket:UdpSocket;
+    private var poller:ArtNetSocketPoller;
     #end
 
-    var port:Int;
+    private var port:Int;
 
     /**
      * Binds and opens a socket on the specified UDP port.
@@ -55,18 +53,23 @@ class ArtNetSocket extends EventDispatcher {
         super();
         this.port = port;
         #if (air || flash)
+        // AIR/Flash: Use event-driven DatagramSocket
         socket = new DatagramSocket();
         socket.addEventListener(DatagramSocketDataEvent.DATA, onSocketData);
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
         socket.bind(port, "0.0.0.0");
         socket.receive();
         #else
+        // Native: Use non-blocking socket with background polling
         socket = new UdpSocket();
         socket.setBlocking(false);
         socket.bind(new Host("0.0.0.0"), port);
-        dispatcher = Lib.current.stage;
-        running = true;
-        thread = Thread.create(pollLoop);
+        poller = new ArtNetSocketPoller(socket, this);
+        // Listen for custom poll events & forward to core handler
+        addEventListener("ArtNetSocketPollEvent", function(e:ArtNetSocketPollEvent) {
+            onDataReceived(e.data, e.host, e.port);
+        });
+        poller.start();
         #end
     }
 
@@ -77,7 +80,7 @@ class ArtNetSocket extends EventDispatcher {
         #if (air || flash)
         socket.close();
         #else
-        running = false;
+        poller.stop();
         socket.close();
         #end
     }
@@ -119,31 +122,20 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     #if (air || flash)
-    // AIR/Flash: socket data event handler
-    function onSocketData(e:DatagramSocketDataEvent):Void {
+    /**
+     * AIR/Flash: DatagramSocket data event handler.
+     * @param e DatagramSocketDataEvent containing received data.
+     */
+    private function onSocketData(e:DatagramSocketDataEvent):Void {
         onDataReceived(Bytes.ofData(e.data), e.srcAddress, e.srcPort);
     }
-    // AIR/Flash: socket error handler
-    function onSocketError(e:IOErrorEvent):Void {
+
+    /**
+     * AIR/Flash: DatagramSocket error event handler.
+     * @param e IOErrorEvent containing error text.
+     */
+    private function onSocketError(e:IOErrorEvent):Void {
         dispatchEvent(new ArtNetErrorEvent(ERROR, e.text));
-    }
-    #else
-    // Native: background polling thread for UDP receive
-    function pollLoop() {
-        while (running) {
-            try {
-                while (true) {
-                    var result = socket.recvFrom(1024);
-                    if (result == null) break;
-                    var host = result.host.toString();
-                    var port = result.port;
-                    onDataReceived(result.data, host, port);
-                }
-            } catch (e:Dynamic) {
-                dispatcher.dispatchEvent(new ArtNetErrorEvent(ERROR, Std.string(e)));
-            }
-            Thread.sleep(0.01);
-        }
     }
     #end
 
@@ -163,6 +155,7 @@ class ArtNetSocket extends EventDispatcher {
                 case "ArtPollReply":
                     dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, detected.packet, host, port));
                 default:
+                    // Unknown Art-Net type, handled as raw data below
             }
         } else {
             dispatchEvent(new ArtNetDataEvent(DATA, data, host, port));
