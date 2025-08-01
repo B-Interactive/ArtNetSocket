@@ -4,6 +4,7 @@ import lime.system.ThreadPool;
 import lime.system.WorkOutput;
 import sys.net.UdpSocket;
 import sys.net.Host;
+import sys.thread.Thread;
 import haxe.io.Bytes;
 import openfl.events.EventDispatcher;
 import openfl.events.Event;
@@ -76,7 +77,7 @@ class ArtNetSocketPoller {
                 output.sendError(e);
             }
             // Sleep briefly to prevent busy waiting (CPU spike)
-            lime.system.Thread.sleep(0.01);
+            Thread.sleep(0.01);
         }
         output.sendComplete(null);
     }
