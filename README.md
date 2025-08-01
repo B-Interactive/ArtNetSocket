@@ -26,8 +26,8 @@ haxelib git artnetsocket https://github.com/B-Interactive/artnetsocket
 ## Usage Example
 
 ```haxe
-import b_interactive.artnetsocket.ArtNetSocket;
-import b_interactive.artnetsocket.ArtNetHelper;
+import binteractive.artnetsocket.ArtNetSocket;
+import binteractive.artnetsocket.ArtNetHelper;
 import haxe.io.Bytes;
 
 // Create socket on Art-Net port
