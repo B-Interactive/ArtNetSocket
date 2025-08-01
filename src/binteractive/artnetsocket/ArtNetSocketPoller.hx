@@ -7,6 +7,7 @@ import sys.net.Host;
 import haxe.io.Bytes;
 import openfl.events.EventDispatcher;
 import openfl.events.Event;
+import binteractive.artnetsocket.ArtNetSocketEvents;
 
 /**
  * ArtNetSocketPoller

@@ -4,39 +4,13 @@ import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
 import haxe.ds.Map;
 import openfl.utils.ByteArray;
+import binteractive.artnetsocket.ArtNetTypes;
 
 /**
  * Art-Net protocol helper for DMX, Poll, and PollReply packets.
  * All buffers are Little Endian per Art-Net specification.
  * Compatible with Haxe 4.3.7 and OpenFL 9.4.1.
  */
-typedef ArtDMXPacket = {
-    var protocolVersion:Int;
-    var sequence:Int;
-    var physical:Int;
-    var universe:Int;
-    var length:Int;
-    var data:Bytes;
-}
-
-typedef ArtPollReplyPacket = {
-    var ip:String;
-    var port:Int;
-    var version:Int;
-    var shortName:String;
-    var longName:String;
-    var nodeReport:String;
-    var oem:Int;
-    var numPorts:Int;
-    var portTypes:Array<Int>;
-    var goodInput:Array<Int>;
-    var goodOutput:Array<Int>;
-    var swIn:Array<Int>;
-    var swOut:Array<Int>;
-    var mac:Array<Int>;
-    var bindIp:String;
-    var style:Int;
-}
 
 class ArtNetHelper {
     /** Art-Net Protocol ID (8 bytes, zero-padded) */
