@@ -1,4 +1,4 @@
-package b_interactive.artnetsocket;
+package binteractive.artnetsocket;
 
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;

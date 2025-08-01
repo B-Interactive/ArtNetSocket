@@ -1,10 +1,10 @@
-package b_interactive.artnetsocket;
+package binteractive.artnetsocket;
 
 import openfl.events.EventDispatcher;
 import openfl.events.Event;
 import haxe.io.Bytes;
 import lime.system.Thread;
-import b_interactive.artnetsocket.ArtNetHelper;
+import binteractive.artnetsocket.ArtNetHelper;
 
 #if (air || flash)
 import openfl.net.DatagramSocket;
