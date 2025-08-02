@@ -9,6 +9,7 @@ import haxe.io.Bytes;
 import binteractive.artnetsocket.ArtNetHelper;
 import binteractive.artnetsocket.ArtNetSocketEvents;
 import binteractive.artnetsocket.ArtNetTypes;
+import binteractive.artnetsocket.ArtNetNetworkUtil;
 
 /**
  * ArtNetSocket
@@ -35,13 +36,14 @@ class ArtNetSocket extends EventDispatcher {
 
     /**
      * Binds and opens a socket on the specified UDP port.
-     * @param address interface to bind to (default is "0.0.0.0" for all)
-     * @param port UDP port (default for Art-Net is 6454)
+     * Loads config and prioritizes explicit config values for address, port, and subnet.
+     * @param configPath Optional: path to config file
      */
-    public function new(address:String = "0.0.0.0", port:Int = 6454) {
+    public function new(configPath:String = "artnetsocket.config.json") {
         super();
-        this.address = address;
-        this.port = port;
+        var config = ArtNetNetworkUtil.loadConfig(configPath);
+        this.address = ArtNetNetworkUtil.getBindInterface(config);
+        this.port = config.port;
 
         if (!DatagramSocket.isSupported) {
             dispatchEvent(new ArtNetErrorEvent(ERROR, "DatagramSocket is not supported on this platform."));
@@ -78,9 +80,9 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Send an ArtDMX packet.
+     * Send an ArtDMX packet to a single address.
      * @param pkt ArtDMXPacket structure
-     * @param host Target IP address or broadcast ("255.255.255.255")
+     * @param host Target IP address
      * @param port Target UDP port (default 6454)
      */
     public function sendDMX(pkt:ArtDMXPacket, host:String, port:Int = 6454):Void {
@@ -94,17 +96,47 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Send an ArtPoll packet (node discovery).
-     * @param host Target IP or broadcast address
-     * @param port Target UDP port (default 6454)
+     * Simulate UDP broadcast by sending to each address in configured or detected subnet.
+     * @param pkt ArtDMXPacket structure
+     * @param config Optional: network config to use
      */
-    public function sendPoll(host:String = "255.255.255.255", port:Int = 6454):Void {
+    public function broadcastDMX(pkt:ArtDMXPacket, config:Dynamic = null):Void {
         if (socket == null) return;
+        if (config == null) config = ArtNetNetworkUtil.loadConfig();
+        var subnet = ArtNetNetworkUtil.getPrivateSubnet(config);
+        var bytes = ArtNetHelper.encodeDMX(pkt);
+        var localIP = ArtNetNetworkUtil.getBindInterface(config);
+        for (i in 1...255) {
+            var ip = subnet + i;
+            if (ip != localIP) {
+                try {
+                    socket.send(ip, port, bytes.getData());
+                } catch (e:Dynamic) {
+                    // Optionally log errors per IP
+                }
+            }
+        }
+    }
+
+    /**
+     * Send an ArtPoll packet (node discovery) to every address in the subnet.
+     * @param config Optional: network config to use
+     */
+    public function broadcastPoll(config:Dynamic = null):Void {
+        if (socket == null) return;
+        if (config == null) config = ArtNetNetworkUtil.loadConfig();
+        var subnet = ArtNetNetworkUtil.getPrivateSubnet(config);
         var bytes = ArtNetHelper.encodePoll();
-        try {
-            socket.send(host, port, bytes.getData());
-        } catch (e:Dynamic) {
-            dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send Poll: " + Std.string(e)));
+        var localIP = ArtNetNetworkUtil.getBindInterface(config);
+        for (i in 1...255) {
+            var ip = subnet + i;
+            if (ip != localIP) {
+                try {
+                    socket.send(ip, port, bytes.getData());
+                } catch (e:Dynamic) {
+                    // Optionally log errors per IP
+                }
+            }
         }
     }
 
