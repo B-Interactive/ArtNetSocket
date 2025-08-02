@@ -46,7 +46,10 @@ class ArtNetHelper {
         ba.writeByte(pkt.physical);
         writeUInt16LE(ba, pkt.universe);
         writeUInt16LE(ba, pkt.length);
+
+        // If pkt.data is ByteArray, writeBytes can be used directly
         ba.writeBytes(pkt.data, 0, pkt.length);
+
         ba.position = 0;
         return ba;
     }
@@ -58,7 +61,10 @@ class ArtNetHelper {
      */
     public static function decodeDMX(ba:ByteArray):Null<ArtDMXPacket> {
         if (ba.length < 18) return null;
-        if (ba.readUTFBytes(8) != ARTNET_ID) return null;
+
+        ba.position = 0;
+        var id = ba.readUTFBytes(8);
+        if (id != ARTNET_ID) return null;
         var opcode = readUInt16LE(ba, 8);
         if (opcode != OP_DMX) return null;
         var protocolVersion = readUInt16LE(ba, 10);
@@ -67,12 +73,13 @@ class ArtNetHelper {
         var universe = readUInt16LE(ba, 14);
         var len = readUInt16LE(ba, 16);
         if (ba.length < 18 + len) return null;
+
         var data = new ByteArray();
         ba.position = 18;
         ba.readBytes(data, 0, len);
         data.position = 0;
-        // Restore position for further parsing if required
-        ba.position = 0;
+        ba.position = 0; // reset for future parsing
+
         return {
             protocolVersion: protocolVersion,
             sequence: sequence,
