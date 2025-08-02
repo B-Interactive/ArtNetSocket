@@ -51,8 +51,9 @@ class ArtNetSocket extends EventDispatcher {
     /**
      * Binds and opens a socket on the specified UDP port.
      * @param port UDP port (default for Art-Net is 6454)
+     * @param local interface to bind to (default is "0.0.0.0" for all)
      */
-    public function new(port:Int = 6454) {
+    public function new(address:String = "0.0.0.0", port:Int = 6454) {
         super();
         this.port = port;
         #if (air || flash)
@@ -60,14 +61,14 @@ class ArtNetSocket extends EventDispatcher {
         socket = new DatagramSocket();
         socket.addEventListener(DatagramSocketDataEvent.DATA, onSocketData);
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
-        socket.bind(port, "0.0.0.0");
+        socket.bind(port, address);
         socket.receive();
         #else
         // Native: Use non-blocking socket with background polling
         socket = new UdpSocket();
         socket.setBlocking(false); // Ensure socket doesn't block
         socket.setBroadcast(true); // Enable broadcast
-        socket.bind(new Host("0.0.0.0"), port); // Bind to all interfaces
+        socket.bind(new Host(address), port); // Bind to all interfaces
         poller = new ArtNetSocketPoller(socket, this);
         // Listen for custom poll events & forward to core handler
         addEventListener("ArtNetSocketPollEvent", function(e:ArtNetSocketPollEvent) {
