@@ -51,7 +51,6 @@ class ArtNetSocket extends EventDispatcher {
         }
 
         socket = new DatagramSocket();
-        socket.enableBroadcast = true;
         socket.addEventListener(DatagramSocketDataEvent.DATA, onSocketData);
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 
@@ -146,8 +145,8 @@ class ArtNetSocket extends EventDispatcher {
      */
     private function onSocketData(e:DatagramSocketDataEvent):Void {
         var bytes = Bytes.ofData(e.data);
-        var host = e.address;
-        var port = e.port;
+        var host = e.srcAddress;
+        var port = e.srcPort;
 
         // Try to decode DMX
         var dmx = ArtNetHelper.decodeDMX(bytes);
@@ -155,13 +154,6 @@ class ArtNetSocket extends EventDispatcher {
             dispatchEvent(new ArtDMXEvent(ARTDMX, dmx, host, port));
             return;
         }
-
-        // Try to decode PollReply (add decodePollReply if needed)
-        // var pollReply = ArtNetHelper.decodePollReply(bytes);
-        // if (pollReply != null) {
-        //     dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, host, port));
-        //     return;
-        // }
 
         // Fallback: raw data event
         dispatchEvent(new ArtNetDataEvent(DATA, bytes, host, port));
