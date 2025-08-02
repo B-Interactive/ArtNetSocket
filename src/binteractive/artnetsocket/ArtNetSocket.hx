@@ -14,6 +14,7 @@ import openfl.events.IOErrorEvent;
 #else
 import sys.net.UdpSocket;
 import sys.net.Address;
+import sys.net.Host;
 import openfl.Lib;
 import binteractive.artnetsocket.ArtNetSocketPoller;
 #end
