@@ -103,17 +103,16 @@ class ArtNetSocketPoller {
     }
 
     /**
-     * Yield the thread if supported by the target platform,
-     * otherwise this is a no-op (does nothing).
+     * Yield the thread in a compatible way with all sys targets.
+     * On C++: thread yield, on HL/Neko: short sleep, otherwise no-op.
      */
     private inline function yieldThread():Void {
         #if cpp
         cpp.vm.Thread.yield();
-        #elseif hl
-        hl.Api.yield();
-        #else
-        // No-op for targets that lack yielding
+        #elseif (hl || neko || sys)
+        sys.thread.Thread.sleep(0.01); // Sleep 10ms to yield CPU
         #end
+        // No-op for other targets (HTML5, etc.)
     }
 
     /**
