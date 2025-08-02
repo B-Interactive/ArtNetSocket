@@ -51,7 +51,6 @@ class ArtNetSocket extends EventDispatcher {
         }
 
         socket = new DatagramSocket();
-        socket.enableBroadcast = true;
         socket.addEventListener(DatagramSocketDataEvent.DATA, onSocketData);
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 
