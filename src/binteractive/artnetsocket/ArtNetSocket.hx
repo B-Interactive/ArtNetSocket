@@ -120,9 +120,10 @@ class ArtNetSocket extends EventDispatcher {
 
     /**
      * Send an ArtPoll packet (node discovery) to every address in the subnet.
+     * Broadcast is not currently supported by openfl.net.DatagramSocket, so this is a simulated (manual) broadcast.
      * @param config Optional: network config to use
      */
-    public function broadcastPoll(config:Dynamic = null):Void {
+    public function sendPoll(config:Dynamic = null):Void {
         if (socket == null) return;
         if (config == null) config = ArtNetNetworkUtil.loadConfig();
         var subnet = ArtNetNetworkUtil.getPrivateSubnet(config);
