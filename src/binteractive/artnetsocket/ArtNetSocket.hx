@@ -65,7 +65,7 @@ class ArtNetSocket extends EventDispatcher {
         // Native: Use non-blocking socket with background polling
         socket = new UdpSocket();
         socket.setBlocking(false); // Ensure socket doesn't block
-        socket.bind(new sys.net.Address("0.0.0.0", port)); // Bind to all interfaces
+        socket.bind(new Host("0.0.0.0"), port); // Bind to all interfaces
         poller = new ArtNetSocketPoller(socket, this);
         // Listen for custom poll events & forward to core handler
         addEventListener("ArtNetSocketPollEvent", function(e:ArtNetSocketPollEvent) {
@@ -123,7 +123,7 @@ class ArtNetSocket extends EventDispatcher {
         #else
         // Native: Use UdpSocket.sendTo with Address (Haxe API standard)
         var addr = new sys.net.Address();
-        addr.host = host;
+        addr.host = new Host(host);
         addr.port = port;
         // Send the data, starting at position 0 and using the full length
         socket.sendTo(data, 0, data.length, addr);
