@@ -2,6 +2,7 @@ package binteractive.artnetsocket;
 
 import sys.net.Host;
 import haxe.Json;
+import StringTools;
 
 /**
  * Utility for network interface discovery and private subnet detection, prioritizing config file settings.
@@ -42,7 +43,7 @@ class ArtNetNetworkUtil {
         // Auto-detect local private IPs
         var localIPs = getLocalIPv4s();
         for (ip in localIPs) {
-            if (ip.startsWith("192.168.") || ip.startsWith("10.") || (ip.startsWith("172.") && Std.parseInt(ip.split(".")[1]) >= 16 && Std.parseInt(ip.split(".")[1]) <= 31)) {
+            if (StringTools.startsWith(ip, "192.168.") || StringTools.startsWith(ip, "10.") || (StringTools.startsWith(ip, "172.") && Std.parseInt(ip.split(".")[1]) >= 16 && Std.parseInt(ip.split(".")[1]) <= 31)) {
                 return ip;
             }
         }
@@ -59,9 +60,9 @@ class ArtNetNetworkUtil {
         }
         var localIPs = getLocalIPv4s();
         for (ip in localIPs) {
-            if (ip.startsWith("192.168.")) return ip.substr(0, ip.lastIndexOf(".") + 1);
-            if (ip.startsWith("10.")) return ip.substr(0, ip.indexOf(".", 3) + 1);
-            if (ip.startsWith("172.")) {
+            if (StringTools.startsWith(ip, "192.168.")) return ip.substr(0, ip.lastIndexOf(".") + 1);
+            if (StringTools.startsWith(ip, "10.")) return ip.substr(0, ip.indexOf(".", 3) + 1);
+            if (StringTools.startsWith(ip, "172.")) {
                 var second = Std.parseInt(ip.split(".")[1]);
                 if (second >= 16 && second <= 31) return ip.substr(0, ip.lastIndexOf(".") + 1);
             }
@@ -75,13 +76,8 @@ class ArtNetNetworkUtil {
     public static function getLocalIPv4s():Array<String> {
         var addresses:Array<String> = [];
         #if sys
-        var hosts = Host.localHosts();
-        for (h in hosts) {
-            try {
-                var addr = h.toString();
-                if (~/^\d+\.\d+\.\d+\.\d+$/.match(addr)) addresses.push(addr);
-            } catch (e:Dynamic) {}
-        }
+        var addr = Host.localhost();
+        if (~/^\d+\.\d+\.\d+\.\d+$/.match(addr)) addresses.push(addr);
         #end
         return addresses;
     }
