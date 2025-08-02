@@ -124,7 +124,7 @@ class ArtNetSocket extends EventDispatcher {
         #else
         // Native: Use UdpSocket.sendTo with Address (Haxe API standard)
         var addr = new sys.net.Address();
-        addr.host = new Host(host);
+        addr.host = new Host(host).ip;
         addr.port = port;
         // Send the data, starting at position 0 and using the full length
         socket.sendTo(data, 0, data.length, addr);
