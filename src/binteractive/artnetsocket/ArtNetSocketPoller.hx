@@ -31,7 +31,7 @@ class ArtNetSocketPoller {
     public function new(socket:UdpSocket, dispatcher:EventDispatcher) {
         this.socket = socket;
         this.dispatcher = dispatcher;
-        // Use a single-threaded ThreadPool (safe and efficient for socket polling)
+        // Create a single-threaded ThreadPool (safe and efficient for socket polling)
         threadPool = new ThreadPool(1, 1);
     }
 
@@ -42,18 +42,26 @@ class ArtNetSocketPoller {
     public function start():Void {
         if (running) return; // Already running? Do nothing.
         running = true;
-        attachThreadPoolListeners();
+        attachThreadPoolListeners(); // Set up listeners for data and error events
         // Start the polling loop in the ThreadPool
         pollJobID = threadPool.run(pollLoop, {});
     }
 
     /**
      * Stops the background polling job and cleans up the thread pool.
+     * Also closes the socket to unblock any waiting thread.
      */
     public function stop():Void {
-        running = false; // Set running flag to false to exit polling loop
+        running = false; // Signal the polling loop to exit
+        // Close the socket to immediately unblock any blocking read
+        try {
+            socket.close();
+        } catch (e:Dynamic) {
+            // Ignore errors, socket may already be closed
+        }
+        // Cancel the polling job in the thread pool
         if (threadPool != null && pollJobID != -1) {
-            threadPool.cancelJob(pollJobID); // Cancel the polling job
+            threadPool.cancelJob(pollJobID);
             pollJobID = -1;
         }
     }
@@ -61,11 +69,12 @@ class ArtNetSocketPoller {
     /**
      * The polling function to be run on a background thread.
      * It receives UDP packets and uses sendProgress to communicate with the main thread.
+     * The loop exits promptly when 'running' is set to false and the socket is closed.
      */
     private function pollLoop(state:Dynamic, output:WorkOutput):Void {
-        var bufferSize = 1024;
+        var bufferSize = 1024; // Size of the UDP receive buffer
         var buffer = Bytes.alloc(bufferSize); // Buffer for receiving UDP data
-        var addr = new sys.net.Address();
+        var addr = new sys.net.Address(); // Address of sender
 
         // Try to set the socket to non-blocking mode (if supported)
         try {
@@ -74,14 +83,15 @@ class ArtNetSocketPoller {
             // Not supported on some targets; it's safe to ignore
         }
 
+        // Main polling loop
         while (running) {
-            var dataRead = false;
+            var dataRead = false; // Tracks if any data was received in this iteration
             try {
                 while (true) {
-                    // Read data from the socket; addr will hold sender's address
+                    // Attempt to read data from the socket into the buffer
                     var bytesRead = socket.readFrom(buffer, 0, bufferSize, addr);
-                    if (bytesRead <= 0) break; // No data read
-                    dataRead = true;
+                    if (bytesRead <= 0) break; // No data read, exit inner loop
+                    dataRead = true; // Mark that data was received
                     // Send received data to the main thread using sendProgress
                     output.sendProgress({
                         data: buffer.sub(0, bytesRead),
@@ -90,26 +100,21 @@ class ArtNetSocketPoller {
                     });
                 }
             } catch (e:Dynamic) {
+                // If the socket is closed, exit the thread immediately
+                var msg = Std.string(e);
+                if (msg.indexOf("Bad file descriptor") >= 0 || msg.indexOf("socket closed") >= 0) {
+                    break; // Exit the polling loop
+                }
                 // EWOULDBLOCK/EAGAIN just means no data available yet
                 if (!isWouldBlockError(e)) {
                     output.sendError(e); // Report real errors
                 }
             }
-            // Yield the thread to avoid busy-wait (if supported)
-            yieldThread();
+            // Sleep for 10ms if no data was received, to avoid busy-waiting and high CPU usage
+            if (!dataRead) sys.thread.Thread.sleep(0.01);
         }
         // Notify main thread that polling has completed
         output.sendComplete(null);
-    }
-
-    /**
-     * Yield the thread.
-     */
-    private inline function yieldThread():Void {
-        #if (cpp || hl || neko || sys)
-        sys.thread.Thread.yield();
-        #end
-        // No-op for other targets (HTML5 etc.)
     }
 
     /**
