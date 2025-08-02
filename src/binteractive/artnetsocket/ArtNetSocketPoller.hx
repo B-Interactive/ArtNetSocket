@@ -111,7 +111,7 @@ class ArtNetSocketPoller {
                 }
             }
             // Sleep for 10ms if no data was received, to avoid busy-waiting and high CPU usage
-            if (!dataRead) sys.thread.Thread.sleep(0.01);
+            if (!dataRead) Sys.sleep(0.01);
         }
         // Notify main thread that polling has completed
         output.sendComplete(null);
