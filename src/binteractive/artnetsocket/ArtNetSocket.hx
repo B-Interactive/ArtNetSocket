@@ -13,7 +13,7 @@ import openfl.events.DatagramSocketDataEvent;
 import openfl.events.IOErrorEvent;
 #else
 import sys.net.UdpSocket;
-import sys.net.Host;
+import sys.net.Address;
 import openfl.Lib;
 import binteractive.artnetsocket.ArtNetSocketPoller;
 #end
@@ -64,14 +64,14 @@ class ArtNetSocket extends EventDispatcher {
         #else
         // Native: Use non-blocking socket with background polling
         socket = new UdpSocket();
-        socket.setBlocking(false);
-        socket.bind(new Host("0.0.0.0"), port);
+        socket.setBlocking(false); // Ensure socket doesn't block
+        socket.bind(new sys.net.Address("0.0.0.0", port)); // Bind to all interfaces
         poller = new ArtNetSocketPoller(socket, this);
         // Listen for custom poll events & forward to core handler
         addEventListener("ArtNetSocketPollEvent", function(e:ArtNetSocketPollEvent) {
             onDataReceived(e.data, e.host, e.port);
         });
-        poller.start();
+        poller.start(); // Start background thread polling
         #end
     }
 
@@ -111,15 +111,22 @@ class ArtNetSocket extends EventDispatcher {
 
     /**
      * Send raw UDP bytes.
+     * This uses the correct Address-based sendTo overload for Native targets.
      * @param data Bytes to send
      * @param host Target IP
      * @param port Target port
      */
     public function send(data:Bytes, host:String, port:Int):Void {
         #if (air || flash)
+        // AIR/Flash: Use DatagramSocket.send
         socket.send(data.getData(), 0, data.length, host, port);
         #else
-        socket.sendTo(data, new Host(host), port);
+        // Native: Use UdpSocket.sendTo with Address (Haxe API standard)
+        var addr = new sys.net.Address();
+        addr.host = host;
+        addr.port = port;
+        // Send the data, starting at position 0 and using the full length
+        socket.sendTo(data, 0, data.length, addr);
         #end
     }
 
