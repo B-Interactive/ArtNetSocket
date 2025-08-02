@@ -66,6 +66,7 @@ class ArtNetSocket extends EventDispatcher {
         // Native: Use non-blocking socket with background polling
         socket = new UdpSocket();
         socket.setBlocking(false); // Ensure socket doesn't block
+        socket.setBroadcast(true); // Enable broadcast
         socket.bind(new Host("0.0.0.0"), port); // Bind to all interfaces
         poller = new ArtNetSocketPoller(socket, this);
         // Listen for custom poll events & forward to core handler
