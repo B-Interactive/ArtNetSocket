@@ -1,7 +1,5 @@
 package binteractive.artnetsocket;
 
-import haxe.io.Bytes;
-import haxe.io.BytesBuffer;
 import openfl.utils.ByteArray;
 import binteractive.artnetsocket.ArtNetTypes;
 
@@ -29,16 +27,16 @@ class ArtNetHelper {
     /**
      * Read a 16-bit unsigned integer (short) in little-endian order.
      */
-    private static function readUInt16LE(bytes:Bytes, pos:Int):Int {
-        return bytes.get(pos) | (bytes.get(pos + 1) << 8);
+    private static function readUInt16LE(ba:ByteArray, pos:Int):Int {
+        return ba[pos] | (ba[pos + 1] << 8);
     }
 
     /**
-     * Serializes an ArtDMXPacket into a Bytes buffer.
+     * Serializes an ArtDMXPacket into a ByteArray buffer.
      * @param pkt ArtDMXPacket structure
-     * @return Bytes ready for sending via UDP
+     * @return ByteArray ready for sending via UDP
      */
-    public static function encodeDMX(pkt:ArtDMXPacket):Bytes {
+    public static function encodeDMX(pkt:ArtDMXPacket):ByteArray {
         var ba = new ByteArray();
         ba.endian = "littleEndian";
         ba.writeUTFBytes(ARTNET_ID); // 8 bytes: "Art-Net\0"
@@ -48,37 +46,48 @@ class ArtNetHelper {
         ba.writeByte(pkt.physical);
         writeUInt16LE(ba, pkt.universe);
         writeUInt16LE(ba, pkt.length);
-        ba.writeBytes(Bytes.ofData(pkt.data.getData()), 0, pkt.length);
+        ba.writeBytes(pkt.data, 0, pkt.length);
         ba.position = 0;
-        return Bytes.ofData(ba);
+        return ba;
     }
 
     /**
-     * Parses a Bytes buffer into an ArtDMXPacket structure.
-     * @param data Bytes buffer (minimum 18 bytes)
+     * Parses a ByteArray buffer into an ArtDMXPacket structure.
+     * @param ba ByteArray buffer (minimum 18 bytes)
      * @return ArtDMXPacket or null if invalid
      */
-    public static function decodeDMX(data:Bytes):Null<ArtDMXPacket> {
-        if (data.length < 18) return null;
-        if (data.sub(0,8).toString() != ARTNET_ID) return null;
-        var opcode = readUInt16LE(data, 8);
+    public static function decodeDMX(ba:ByteArray):Null<ArtDMXPacket> {
+        if (ba.length < 18) return null;
+        if (ba.readUTFBytes(8) != ARTNET_ID) return null;
+        var opcode = readUInt16LE(ba, 8);
         if (opcode != OP_DMX) return null;
-        var len = readUInt16LE(data, 16);
+        var protocolVersion = readUInt16LE(ba, 10);
+        var sequence = ba[12];
+        var physical = ba[13];
+        var universe = readUInt16LE(ba, 14);
+        var len = readUInt16LE(ba, 16);
+        if (ba.length < 18 + len) return null;
+        var data = new ByteArray();
+        ba.position = 18;
+        ba.readBytes(data, 0, len);
+        data.position = 0;
+        // Restore position for further parsing if required
+        ba.position = 0;
         return {
-            protocolVersion: readUInt16LE(data, 10),
-            sequence: data.get(12),
-            physical: data.get(13),
-            universe: readUInt16LE(data, 14),
+            protocolVersion: protocolVersion,
+            sequence: sequence,
+            physical: physical,
+            universe: universe,
             length: len,
-            data: data.sub(18, len)
+            data: data
         };
     }
 
     /**
      * Serializes a minimal ArtPoll packet (standard for node discovery).
-     * @return Bytes ready for sending via UDP
+     * @return ByteArray ready for sending via UDP
      */
-    public static function encodePoll():Bytes {
+    public static function encodePoll():ByteArray {
         var ba = new ByteArray();
         ba.endian = "littleEndian";
         ba.writeUTFBytes(ARTNET_ID); // 8 bytes: "Art-Net\0"
@@ -87,7 +96,7 @@ class ArtNetHelper {
         ba.writeByte(0); // TalkToMe
         ba.writeByte(0); // Priority
         ba.position = 0;
-        return Bytes.ofData(ba);
+        return ba;
     }
 
     // Add decodePollReply if needed for your use case!

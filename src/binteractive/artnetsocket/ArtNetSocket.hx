@@ -5,7 +5,7 @@ import openfl.events.Event;
 import openfl.net.DatagramSocket;
 import openfl.events.DatagramSocketDataEvent;
 import openfl.events.IOErrorEvent;
-import haxe.io.Bytes;
+import openfl.utils.ByteArray;
 import binteractive.artnetsocket.ArtNetHelper;
 import binteractive.artnetsocket.ArtNetSocketEvents;
 import binteractive.artnetsocket.ArtNetTypes;
@@ -51,6 +51,7 @@ class ArtNetSocket extends EventDispatcher {
         }
 
         socket = new DatagramSocket();
+        socket.enableBroadcast = true;
         socket.addEventListener(DatagramSocketDataEvent.DATA, onSocketData);
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 
@@ -86,9 +87,9 @@ class ArtNetSocket extends EventDispatcher {
      */
     public function sendDMX(pkt:ArtDMXPacket, host:String, port:Int = 6454):Void {
         if (socket == null) return;
-        var bytes = ArtNetHelper.encodeDMX(pkt);
+        var bytes = ArtNetHelper.encodeDMX(pkt); // ByteArray
         try {
-            socket.send(host, port, bytes.getData());
+            socket.send(host, port, bytes);
         } catch (e:Dynamic) {
             dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send DMX: " + Std.string(e)));
         }
@@ -103,13 +104,13 @@ class ArtNetSocket extends EventDispatcher {
         if (socket == null) return;
         if (config == null) config = ArtNetNetworkUtil.loadConfig();
         var subnet = ArtNetNetworkUtil.getPrivateSubnet(config);
-        var bytes = ArtNetHelper.encodeDMX(pkt);
+        var bytes = ArtNetHelper.encodeDMX(pkt); // ByteArray
         var localIP = ArtNetNetworkUtil.getBindInterface(config);
         for (i in 1...255) {
             var ip = subnet + i;
             if (ip != localIP) {
                 try {
-                    socket.send(ip, port, bytes.getData());
+                    socket.send(ip, port, bytes);
                 } catch (e:Dynamic) {
                     // Optionally log errors per IP
                 }
@@ -125,13 +126,13 @@ class ArtNetSocket extends EventDispatcher {
         if (socket == null) return;
         if (config == null) config = ArtNetNetworkUtil.loadConfig();
         var subnet = ArtNetNetworkUtil.getPrivateSubnet(config);
-        var bytes = ArtNetHelper.encodePoll();
+        var bytes = ArtNetHelper.encodePoll(); // ByteArray
         var localIP = ArtNetNetworkUtil.getBindInterface(config);
         for (i in 1...255) {
             var ip = subnet + i;
             if (ip != localIP) {
                 try {
-                    socket.send(ip, port, bytes.getData());
+                    socket.send(ip, port, bytes);
                 } catch (e:Dynamic) {
                     // Optionally log errors per IP
                 }
@@ -144,7 +145,7 @@ class ArtNetSocket extends EventDispatcher {
      * Parses ArtDMX and ArtPollReply, dispatches events.
      */
     private function onSocketData(e:DatagramSocketDataEvent):Void {
-        var bytes = Bytes.ofData(e.data);
+        var bytes = e.data; // ByteArray
         var host = e.srcAddress;
         var port = e.srcPort;
 
@@ -154,6 +155,13 @@ class ArtNetSocket extends EventDispatcher {
             dispatchEvent(new ArtDMXEvent(ARTDMX, dmx, host, port));
             return;
         }
+
+        // Try to decode PollReply (add decodePollReply if needed)
+        // var pollReply = ArtNetHelper.decodePollReply(bytes);
+        // if (pollReply != null) {
+        //     dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, host, port));
+        //     return;
+        // }
 
         // Fallback: raw data event
         dispatchEvent(new ArtNetDataEvent(DATA, bytes, host, port));
