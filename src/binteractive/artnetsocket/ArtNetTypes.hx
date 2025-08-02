@@ -2,6 +2,9 @@ package binteractive.artnetsocket;
 
 import haxe.io.Bytes;
 
+/**
+ * Art-Net DMX Packet structure.
+ */
 typedef ArtDMXPacket = {
     var protocolVersion:Int;
     var sequence:Int;
@@ -11,6 +14,9 @@ typedef ArtDMXPacket = {
     var data:Bytes;
 }
 
+/**
+ * Art-Net PollReply Packet structure.
+ */
 typedef ArtPollReplyPacket = {
     var ip:String;
     var port:Int;
