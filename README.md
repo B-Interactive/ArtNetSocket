@@ -1,16 +1,13 @@
 # ArtNetSocket for Haxe
 
-An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
+Cross-platform, event-driven UDP socket tailored for Art-Net (OpenFL/Haxe 4.3+).  
+Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR/Flash).
 
----
-
-## Features
-
-- **Send/receive ArtDMX** (DMX data, event-driven)
-- **Send ArtPoll** (for Art-Net node discovery)
-- **Receive/parse ArtPollReply** (discovery replies, exposes node info)
-- **Event-driven API:** Fires `ArtDMXEvent`, `ArtPollReplyEvent`, `ArtNetDataEvent`, `ArtNetErrorEvent`
-- **Native and AIR/Flash:** Uses polling thread for native targets; event-based for AIR/Flash
+**Features:**
+- Simple DMX send/receive (ArtDMX, ArtPoll, ArtPollReply)
+- Automatic network config (subnet, broadcast)
+- Event-driven protocol parsing
+- Typed packets and helpers
 
 ## Installation
 
