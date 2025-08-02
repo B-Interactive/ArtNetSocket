@@ -143,11 +143,11 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 
 | Library | Minimum Version | Recommended Version         |
 |---------|----------------|----------------------------|
-| Haxe    | 4.0.0          | 4.3.7+                     |
-| OpenFL  | 8.0.0          | 9.x+                       |
+| Haxe    | 4.2.0          | 4.3.7+                     |
+| OpenFL  | 9.2.0          | 9.4.1+                       |
 
 - The library uses modern Haxe types (`haxe.io.Bytes`, etc.) and OpenFL event APIs.
-- Haxe 3.x and OpenFL 7.x or older will require changes and are not officially supported.
+- Versions older than Haxe 4.2.0 and OpenFL 9.2.0 will require changes and are not officially supported.
 
 ---
 
