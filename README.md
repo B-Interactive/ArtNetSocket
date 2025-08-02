@@ -4,11 +4,6 @@ An optimised, cross-platform Art-Net UDP socket for Haxe and OpenFL.
 
 ---
 
-**Jump to:**  
-[Features](#features) | [Installation](#installation) | [Usage Example](#usage-example) | [Simplified DMX Packet Helper](#simplified-dmx-packet-helper) | [Event Types](#event-types) | [OpenFL Target Compatibility](#openfl-target-compatibility) | [Minimum Haxe and OpenFL Versions](#minimum-haxe-and-openfl-versions) | [Art-Net Protocol Compatibility](#art-net-protocol-compatibility) | [Web Browser UDP Support](#web-browser-udp-support) | [License](#license)
-
----
-
 ## Features
 
 - **Send/receive ArtDMX** (DMX data, event-driven)
@@ -28,112 +23,100 @@ haxelib git artnetsocket https://github.com/B-Interactive/artnetsocket
 ```haxe
 import binteractive.artnetsocket.ArtNetSocket;
 import binteractive.artnetsocket.ArtNetHelper;
-import haxe.io.Bytes;
 
-// Create socket on Art-Net port
-var socket = new ArtNetSocket(6454);
+var socket = new ArtNetSocket(); // or pass your config path
 
-// Listen for DMX data
 socket.addEventListener(ArtNetSocket.ARTDMX, function(e) {
-    var evt = cast(e, ArtDMXEvent);
-    trace('DMX from ${evt.host}:${evt.port} universe ${evt.dmx.universe} data size: ${evt.dmx.length}');
+    var dmx = cast(e, ArtDMXEvent).packet;
+    trace('Received DMX: ' + dmx.universe + ' len=' + dmx.length);
 });
 
-// Listen for node discovery replies
 socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(e) {
-    var evt = cast(e, ArtPollReplyEvent);
-    trace('Node: ${evt.info.shortName} @ ${evt.info.ip} Universes: ${evt.info.numPorts}');
+    var reply = cast(e, ArtPollReplyEvent).packet;
+    trace('Received ArtPollReply from ' + reply.ip + ': ' + reply.shortName);
 });
 
-// Send ArtPoll (broadcast discovery request)
-socket.sendPoll();
-
-// Send a DMX packet with just channels 1 and 5 set (all others zero)
-var dmx = ArtNetHelper.makeDMXPacket({
-  universe: 0,
-  values: [
-    { channel: 1, value: 255 },
-    { channel: 5, value: 42 }
-  ]
-});
-socket.sendDMX(dmx, "192.168.1.100");
-
-// Or send a block of DMX values using an array (dense, 0-based: array[0] = channel 1)
-var dmxBlock = ArtNetHelper.makeDMXPacket({
-  universe: 1,
-  array: [255, 128, 0, 0, 42] // Channels 1-5
-});
-socket.sendDMX(dmxBlock, "192.168.1.100");
-
-// Or set a few DMX slots using a map/dictonary (all others zero)
-var channelMap = new Map<Int, Int>();
-channelMap.set(1, 100);
-channelMap.set(4, 200);
-var dmxPacket = ArtNetHelper.makeDMXPacket({
-  universe: 2,
-  map: channelMap
-});
-socket.sendDMX(dmxMap, "192.168.1.100");
-
-// Handle errors
 socket.addEventListener(ArtNetSocket.ERROR, function(e) {
     trace('Socket error: ' + cast(e, ArtNetErrorEvent).message);
 });
+
+// Send DMX to one address
+var dmx = ArtNetHelper.makeDMXPacket([0,0,255,255,0,0,0,0]);
+socket.sendDMX(dmx, "192.168.1.100");
+
+// Broadcast DMX
+socket.broadcastDMX(dmx);
+
+// Broadcast ArtPoll (node discovery)
+socket.sendPoll();
 ```
 
 ---
 
-## Simplified DMX Packet Helper
+## ArtNetHelper DMX Packet Construction
 
-You can easily construct DMX packets using the `ArtNetHelper.makeDMXPacket()` function, which supports several user-friendly ways to specify channel data:
+ArtNetHelper provides a simple way to create an ArtDMXPacket for sending DMX data.
 
-- **Dense array** (`array: [Int]`):  
-  Set DMX values for channels 1..N where `array[0]` is channel 1, `array[1]` is channel 2, etc. The packet length will be `array.length`.
-  ```haxe
-  // Sets channel 1 to 255, 2 to 128, 3 to 0, 4 to 0, 5 to 42
-  var pkt = ArtNetHelper.makeDMXPacket({array: [255, 128, 0, 0, 42]});
-  ```
+```haxe
+// Method 1: From an array of DMX values
+var pkt = ArtNetHelper.makeDMXPacket([0, 255, 128, 0, ...]);
 
-- **Sparse channel/value list** (`values: [{channel, value}]`):  
-  Set specific DMX channels by index (1-based), all others are zero.
-  ```haxe
-  var pkt = ArtNetHelper.makeDMXPacket({
-    values: [ {channel: 1, value: 255}, {channel: 2, value: 128}, {channel: 5, value: 42} ]
-  });
-  ```
+// Method 2: Specify options using an object
+var pkt = ArtNetHelper.makeDMXPacket({
+    universe: 0,              // DMX universe
+    values: [10, 20, 30, ...] // DMX values (array)
+});
 
-- **Map/object** (`map: {channel: value}`):  
-  Like `values`, but as an object with channel numbers as keys; all others zero.
-  ```haxe
-  var pkt = ArtNetHelper.makeDMXPacket([ 1 => 255, 2 => 128, 5 => 42 ]);
-  ```
-  
-  
-- **Raw Bytes** (`data: Bytes`):  
-  Use an existing `Bytes` object. Highest priority; all other options ignored.
-  ```haxe
-  var bytes = Bytes.alloc(3); bytes.set(1, 255); bytes.set(2, 128); bytes.set(5, 42);
-  var pkt = ArtNetHelper.makeDMXPacket({data: bytes});
-  ```
+// Method 3: Advanced usage with a Haxe Map
+var map = new Map<String, Dynamic>();
+map.set("universe", 0);
+map.set("length", 512);
+map.set("data", myByteArray); // ByteArray containing DMX data
+var pkt = ArtNetHelper.makeDMXPacket(map);
+```
 
-**Other options:**
-- `universe`: Art-Net universe (default 0)
-- `length`: Number of DMX slots (default 512; if using array or data, inferred)
-- `protocolVersion`: Art-Net protocol version (default 14)
-- `sequence`: Sequence number (default 0)
-- `physical`: Physical port (default 0)
-
-**Priority:**  
-If you provide `data`, it is used as-is. If you provide `array`, it is used next. Otherwise, `values` and `map` are used to fill a zeroed buffer of length `length` (default 512).
+**Tip:**  
+For most use cases, you can simply use an array of DMX values for quick packet creation.
 
 ---
 
 ## Event Types
 
-- `ArtNetSocket.ARTDMX` (`ArtDMXEvent`): DMX data received
-- `ArtNetSocket.ARTPOLLREPLY` (`ArtPollReplyEvent`): Node discovery reply
-- `ArtNetSocket.DATA` (`ArtNetDataEvent`): Unparsed UDP data
-- `ArtNetSocket.ERROR` (`ArtNetErrorEvent`): Socket error
+- **ArtNetSocket.ARTDMX**: `ArtDMXEvent` - DMX packet received.
+- **ArtNetSocket.ARTPOLLREPLY**: `ArtPollReplyEvent` - PollReply packet received.
+- **ArtNetSocket.DATA**: `ArtNetDataEvent` - Raw UDP data received.
+- **ArtNetSocket.ERROR**: `ArtNetErrorEvent` - Error occurred.
+
+---
+
+## Configuration: `artnetsocket.config.json`
+
+ArtNetSocket can read its network configuration from an optional JSON file, typically named `artnetsocket.config.json`.  
+This file allows you to specify network settings such as IP address, UDP port, and subnet to override auto-detection.
+
+**Example `artnetsocket.config.json`:**
+```json
+{
+  "address": "192.168.1.10",
+  "port": 6454,
+  "subnet": "192.168.1."
+}
+```
+
+**Usage:**
+- Pass the config file path to the constructor:  
+  ```haxe
+  var socket = new ArtNetSocket("artnetsocket.config.json");
+  ```
+- If omitted, the default path `"artnetsocket.config.json"` is used.
+- If no file is found, ArtNetSocket auto-detects the local interface and subnet.
+
+**Config Fields:**
+- `address`: (string) The local network interface to bind. If unset, auto-detected.
+- `port`: (int) UDP port to bind. Default is 6454.
+- `subnet`: (string) Subnet prefix for broadcast/discovery. Example: `"192.168.1."`.
+
+You can customize your network environment by editing the config file, or rely on automatic detection for simple cases.
 
 ---
 
@@ -182,18 +165,6 @@ This library is designed to interoperate with all mainstream Art-Net II, III, an
 
 **Summary:**  
 For standard DMX transport and node discovery, this library is compatible with any Art-Net 2/3/4 node or controller you are likely to encounter.
-
----
-
-## Web Browser UDP Support
-
-**General UDP networking is not available in web browsers.**  
-Browsers do not expose raw UDP socket APIs to user code for security reasons.
-
-- **WebRTC DataChannels** use UDP internally but are only for peer-to-peer comms and do not offer generic UDP socket access.
-- **WebTransport (UDP/QUIC)** is not a general UDP socket and only works with compatible servers.
-- **No browser (Chrome, Firefox, Safari, Edge, etc.) supports arbitrary UDP for Art-Net or similar protocols.**
-- **Workaround:** Use a native application or a WebSocket-to-UDP bridge for browser-based tools.
 
 ---
 
