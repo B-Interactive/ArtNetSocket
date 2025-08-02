@@ -146,7 +146,8 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 | Haxe    | 4.2.0          | 4.3.7+                     |
 | OpenFL  | 9.2.0          | 9.4.1+                       |
 
-- The library uses modern Haxe types (`haxe.io.Bytes`, etc.) and OpenFL event APIs.
+- Relies on `openfl.net.DatagramSocket`, which is available in OpenFL 9.2.0 and later.
+- Makes use of the `final` static field and `Map` improvements, which are available in Haxe 4.2.0 and later.
 - Versions older than Haxe 4.2.0 and OpenFL 9.2.0 will require changes and are not officially supported.
 
 ---
