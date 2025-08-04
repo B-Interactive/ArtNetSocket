@@ -24,31 +24,27 @@ haxelib git artnetsocket https://github.com/B-Interactive/artnetsocket
 ## Usage Example
 
 ```haxe
-import binteractive.artnetsocket.ArtNetSocket;
-import binteractive.artnetsocket.ArtNetHelper;
+var socket = new ArtNetSocket(); // Uses defaults: address="0.0.0.0", port=6454, universe=0, length=512
 
-var socket = new ArtNetSocket(); // or pass your config path
+// Listen for events, etc...
 
-socket.addEventListener(ArtNetSocket.ARTDMX, function(e) {
-    var dmx = cast(e, ArtDMXEvent).packet;
-    trace('Received DMX: ' + dmx.universe + ' len=' + dmx.length);
-});
+// Create a DMX packet (array form)
+var pkt = socket.makeDMXPacket([0, 255, 128, 64, 0, 0, 0, 0]);
 
-socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(e) {
-    var reply = cast(e, ArtPollReplyEvent).packet;
-    trace('Received ArtPollReply from ' + reply.ip + ': ' + reply.shortName);
-});
+// Or with a ByteArray:
+var ba = new ByteArray();
+ba.writeByte(100);
+ba.writeByte(200);
+pkt = socket.makeDMXPacket({ data: ba });
 
-socket.addEventListener(ArtNetSocket.ERROR, function(e) {
-    trace('Socket error: ' + cast(e, ArtNetErrorEvent).message);
-});
+// Optional: override universe/length per packet
+pkt = socket.makeDMXPacket([0, 255, 128], 2, 3);
 
-// Send DMX to one address (non-persistent mode, array form)
-var dmx = ArtNetHelper.makeDMXPacket([0,0,255,255,0,0,0,0]);
-socket.sendDMX(dmx, "192.168.1.100");
+// Send DMX
+socket.sendDMX(pkt, "192.168.1.100");
 
 // Broadcast DMX
-socket.broadcastDMX(dmx);
+socket.broadcastDMX(pkt);
 
 // Broadcast ArtPoll (node discovery)
 socket.sendPoll();
