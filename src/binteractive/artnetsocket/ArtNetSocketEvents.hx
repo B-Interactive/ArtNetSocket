@@ -8,12 +8,12 @@ import binteractive.artnetsocket.ArtNetTypes;
  * Event: ArtDMX (DMX data) received.
  */
 class ArtDMXEvent extends Event {
-    public var dmx:ArtDMXPacket;
+    public var packet:ArtDMXPacket;
     public var host:String;
     public var port:Int;
-    public function new(type:String, dmx:ArtDMXPacket, host:String, port:Int) {
+    public function new(type:String, packet:ArtDMXPacket, host:String, port:Int) {
         super(type, false, false);
-        this.dmx = dmx;
+        this.packet = packet;
         this.host = host;
         this.port = port;
     }
@@ -23,12 +23,12 @@ class ArtDMXEvent extends Event {
  * Event: ArtPollReply (node discovery) received.
  */
 class ArtPollReplyEvent extends Event {
-    public var info:ArtPollReplyPacket;
+    public var packet:ArtPollReplyPacket;
     public var host:String;
     public var port:Int;
-    public function new(type:String, info:ArtPollReplyPacket, host:String, port:Int) {
+    public function new(type:String, packet:ArtPollReplyPacket, host:String, port:Int) {
         super(type, false, false);
-        this.info = info;
+        this.packet = packet;
         this.host = host;
         this.port = port;
     }
