@@ -12,7 +12,7 @@ import binteractive.artnetsocket.ArtNetProtocolUtil;
  *
  * Handles Art-Net UDP communication for DMX lighting control.
  * - Binds to a local UDP port for receiving/sending Art-Net packets.
- * - Supports sending ArtDMX packets, broadcasting DMX, and ArtPoll (discovery).
+ * - Supports sending ArtDMX packets, broadcasting DMX (simulated), and ArtPoll (discovery).
  * - Exposes event-based API for integration with OpenFL/Haxe projects.
  *
  * NOTE: Broadcast is simulated for maximum compatibility, sending packets
