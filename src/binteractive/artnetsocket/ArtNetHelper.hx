@@ -8,6 +8,10 @@ import haxe.ds.StringMap;
  * Art-Net protocol helper for DMX, Poll, and PollReply packets.
  * All buffers are Little Endian per Art-Net specification.
  * Compatible with Haxe 4.3.7 and OpenFL 9.4.1.
+ *
+ * This library supports both non-persistent and persistent DMX buffer modes.
+ * In persistent mode, unspecified channel values retain their previous state.
+ * In non-persistent mode, unspecified channel values default to zero.
  */
 class ArtNetHelper {
     /** Art-Net Protocol ID (8 bytes, zero-padded) */
@@ -15,6 +19,50 @@ class ArtNetHelper {
     public static final OP_POLL:Int = 0x2000;
     public static final OP_POLLREPLY:Int = 0x2100;
     public static final OP_DMX:Int = 0x5000;
+
+    /** DMX universe size (channels) */
+    public static final DMX_SIZE:Int = 512;
+
+    /** Persistent buffer for DMX values (shared across all universes) */
+    private static var persistentDMXBuffer:ByteArray = null;
+
+    /** Persistent mode flag */
+    private static var persistentMode:Bool = false;
+
+    /**
+     * Enable or disable persistent DMX buffer mode.
+     * @param enable true for persistent mode, false for non-persistent mode
+     */
+    public static function setPersistentMode(enable:Bool):Void {
+        persistentMode = enable;
+        if (persistentMode && persistentDMXBuffer == null) {
+            // Initialize buffer to zero for all channels
+            persistentDMXBuffer = new ByteArray();
+            for (i in 0...DMX_SIZE) persistentDMXBuffer.writeByte(0);
+            persistentDMXBuffer.position = 0;
+        }
+    }
+
+    /**
+     * Clears the persistent DMX buffer to zero (all channels).
+     */
+    public static function clearPersistentBuffer():Void {
+        if (persistentDMXBuffer != null) {
+            persistentDMXBuffer.position = 0;
+            for (i in 0...DMX_SIZE) persistentDMXBuffer[i] = 0;
+        }
+    }
+
+    /**
+     * Returns a copy of the current persistent DMX buffer.
+     */
+    public static function getPersistentBuffer():ByteArray {
+        if (persistentDMXBuffer == null) return null;
+        var buf = new ByteArray();
+        buf.writeBytes(persistentDMXBuffer, 0, DMX_SIZE);
+        buf.position = 0;
+        return buf;
+    }
 
     /**
      * Write a 16-bit integer (short) in little-endian order.
@@ -108,81 +156,133 @@ class ArtNetHelper {
     }
 
     /**
-     * Creates an ArtDMXPacket from various DMX data representations.
+     * Create an ArtDMXPacket from DMX data.
      *
-     * Usage examples:
-     *   - makeDMXPacket([0, 255, 128, ...])
-     *   - makeDMXPacket({universe: 0, values: [...]})
-     *   - makeDMXPacket(map) // where map is a StringMap with keys "universe", "length", "data"
+     * Usage (non-persistent mode):
+     *   - makeDMXPacket([value0, value1, ...]) // all values specified, length = array length
+     *   - makeDMXPacket({universe:0, values:[...]}) // all values specified
+     *   - makeDMXPacket(map) // all values specified
      *
-     * @param input Array<Int>, object, or StringMap<String,Dynamic> describing DMX packet data.
+     * Usage (persistent mode):
+     *   - makeDMXPacket({channel:10, values:[23,44,51]}) // updates channel 10-12 only, other channels unchanged
+     *   - makeDMXPacket({channels:[10,12,15], values:[23,44,51]}) // updates channels 10,12,15
+     *   - makeDMXPacket({universe:0, values:[...]}) // overwrites channels 0..N with values, rest unchanged
+     *   - makeDMXPacket({universe:0, data:myPartialByteArray, offset:10}) // updates buffer at offset 10
+     *
+     * If not in persistent mode, any unspecified channel values are zero.
+     *
+     * @param input Various forms (see above)
      * @return ArtDMXPacket
      */
     public static function makeDMXPacket(input:Dynamic):ArtDMXPacket {
         var universe:Int = 0;
-        var dmxData:ByteArray = new ByteArray();
-        var length:Int = 512;
+        var length:Int = DMX_SIZE;
+        var resultBuffer:ByteArray;
 
-        // If input is Array<Int>
+        // Select buffer: persistent or fresh
+        if (persistentMode) {
+            if (persistentDMXBuffer == null) {
+                persistentDMXBuffer = new ByteArray();
+                for (i in 0...DMX_SIZE) persistentDMXBuffer.writeByte(0);
+                persistentDMXBuffer.position = 0;
+            }
+            // Work on a copy (to avoid accidental mutation)
+            resultBuffer = getPersistentBuffer();
+        } else {
+            resultBuffer = new ByteArray();
+            for (i in 0...DMX_SIZE) resultBuffer.writeByte(0);
+            resultBuffer.position = 0;
+        }
+
+        // Array<Int> input: update sequentially from channel 0
         if (Std.is(input, Array)) {
             var arr:Array<Int> = cast input;
             length = arr.length;
-            for (v in arr) dmxData.writeByte(v);
+            for (i in 0...arr.length)
+                resultBuffer[i] = arr[i];
         }
-        // If input is an object with fields
+        // Object with fields
         else if (Reflect.isObject(input) && !Std.is(input, StringMap)) {
-            if (Reflect.hasField(input, "universe")) universe = Reflect.field(input, "universe");
+            if (Reflect.hasField(input, "universe"))
+                universe = Reflect.field(input, "universe");
+
+            // Sequential values (starting at channel 0 or at specified channel/offset)
             if (Reflect.hasField(input, "values")) {
                 var vals:Array<Int> = Reflect.field(input, "values");
-                length = vals.length;
-                for (v in vals) dmxData.writeByte(v);
+                if (Reflect.hasField(input, "channel")) {
+                    var channel:Int = Reflect.field(input, "channel");
+                    for (i in 0...vals.length)
+                        if (channel + i < DMX_SIZE)
+                            resultBuffer[channel + i] = vals[i];
+                } else if (Reflect.hasField(input, "channels")) {
+                    var channels:Array<Int> = Reflect.field(input, "channels");
+                    for (i in 0...vals.length)
+                        if (i < channels.length && channels[i] < DMX_SIZE)
+                            resultBuffer[channels[i]] = vals[i];
+                } else {
+                    // Default: start at channel 0
+                    for (i in 0...vals.length)
+                        resultBuffer[i] = vals[i];
+                }
             }
-            if (Reflect.hasField(input, "length")) length = Reflect.field(input, "length");
+            // ByteArray input with optional offset
             if (Reflect.hasField(input, "data")) {
-                dmxData = Reflect.field(input, "data");
-                if (Reflect.hasField(input, "length")) length = Reflect.field(input, "length");
-                else length = dmxData.length;
+                var data:ByteArray = Reflect.field(input, "data");
+                var offset:Int = 0;
+                if (Reflect.hasField(input, "offset"))
+                    offset = Reflect.field(input, "offset");
+                for (i in 0...data.length)
+                    if (offset + i < DMX_SIZE)
+                        resultBuffer[offset + i] = data[i];
             }
+            if (Reflect.hasField(input, "length"))
+                length = Reflect.field(input, "length");
         }
-        // If input is a StringMap<String,Dynamic>
+        // StringMap for advanced
         else if (Std.is(input, StringMap)) {
             var map:StringMap<Dynamic> = cast input;
             if (map.exists("universe")) universe = map.get("universe");
             if (map.exists("length")) length = map.get("length");
-            if (map.exists("data")) dmxData = map.get("data");
-            else if (map.exists("values")) {
+            if (map.exists("data")) {
+                var data:ByteArray = map.get("data");
+                var offset:Int = map.exists("offset") ? map.get("offset") : 0;
+                for (i in 0...data.length)
+                    if (offset + i < DMX_SIZE)
+                        resultBuffer[offset + i] = data[i];
+            } else if (map.exists("channels") && map.exists("values")) {
+                var channels:Array<Int> = map.get("channels");
                 var vals:Array<Int> = map.get("values");
-                length = vals.length;
-                for (v in vals) dmxData.writeByte(v);
+                for (i in 0...vals.length)
+                    if (i < channels.length && channels[i] < DMX_SIZE)
+                        resultBuffer[channels[i]] = vals[i];
+            } else if (map.exists("channel") && map.exists("values")) {
+                var channel:Int = map.get("channel");
+                var vals:Array<Int> = map.get("values");
+                for (i in 0...vals.length)
+                    if (channel + i < DMX_SIZE)
+                        resultBuffer[channel + i] = vals[i];
+            } else if (map.exists("values")) {
+                var vals:Array<Int> = map.get("values");
+                for (i in 0...vals.length)
+                    resultBuffer[i] = vals[i];
             }
         }
         else throw "Invalid argument for makeDMXPacket";
 
-        // Ensure DMX data is correct length
-        dmxData.position = 0;
-        if (dmxData.length < length) {
-            while (dmxData.length < length) dmxData.writeByte(0);
-        } else if (dmxData.length > length) {
-            dmxData = dmxData.sub(0, length);
+        // If in persistent mode, update persistent buffer
+        if (persistentMode) {
+            for (i in 0...DMX_SIZE)
+                persistentDMXBuffer[i] = resultBuffer[i];
         }
 
-        // ArtDMXPacket structure must be matched to your ArtNetTypes definition.
-        // This sample assumes a constructor or static create method like:
-        // ArtDMXPacket.create(universe, length, dmxData)
-        // If your structure is a plain object, adjust accordingly.
-        #if (haxe_ver >= "4.0")
-        return ArtDMXPacket.create(universe, length, dmxData);
-        #else
-        return {
-            protocolVersion: 14,
-            sequence: 0,
-            physical: 0,
-            universe: universe,
-            length: length,
-            data: dmxData
-        };
-        #end
-    }
+        // Limit length to DMX_SIZE
+        if (length > DMX_SIZE) length = DMX_SIZE;
+        // Copy data for packet
+        var packetData = new ByteArray();
+        packetData.writeBytes(resultBuffer, 0, length);
+        packetData.position = 0;
 
-    // Add decodePollReply if needed for your use case!
+        // ArtDMXPacket may use a structure or constructor; adjust if needed
+        return ArtDMXPacket.create(universe, length, packetData);
+    }
 }
