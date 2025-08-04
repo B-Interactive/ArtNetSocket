@@ -8,7 +8,7 @@ Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR
 - Automatic network config (subnet, broadcast)
 - Event-driven protocol parsing
 - Typed packets and helpers
-- **Persistent DMX buffer mode for efficient channel updates**
+- **Persistent DMX buffer mode for efficient sparse channel updates**
 
 ## Installation
 
@@ -54,22 +54,21 @@ socket.sendPoll();
 ## ArtNetHelper DMX Packet Construction
 
 ArtNetHelper provides a simple way to create an ArtDMXPacket for sending DMX data.  
-**Now supports both persistent and non-persistent buffer modes.**
+**Supports both persistent and non-persistent buffer modes.**
 
-### Non-Persistent Mode
+### Non-Persistent Mode (Default)
 
-By default, ArtNetHelper uses non-persistent mode:
-- Any unspecified channel value is assumed to be **0** each time you call `makeDMXPacket`.
+- Any unspecified, `null`, or `-1` channel value is assumed to be **0** each time you call `makeDMXPacket`.
 - You must provide all channel values you wish to set for every packet.
 
 ```haxe
 // Method 1: From an array of DMX values (channels 0..N)
-var pkt = ArtNetHelper.makeDMXPacket([0, 255, 128, 0, ...]); // Unspecified channels = 0
+var pkt = ArtNetHelper.makeDMXPacket([0, 255, 128, 0, ...]); // Unspecified/null/-1 channels = 0
 
 // Method 2: Specify options using an object
 var pkt = ArtNetHelper.makeDMXPacket({
-    universe: 0,              // DMX universe
-    values: [10, 20, 30, ...] // DMX values (array). Unspecified channels = 0
+    universe: 0,
+    values: [10, 20, 30, ...] // DMX values (array). Unspecified/null/-1 channels = 0
 });
 
 // Method 3: Advanced usage with a Haxe Map
@@ -83,18 +82,22 @@ var pkt = ArtNetHelper.makeDMXPacket(map);
 ### Persistent Mode
 
 Enable persistent mode to let the library **retain a DMX buffer behind the scenes**:
-- Any unspecified channel value will fall back to its previous state in the persistent buffer.
-- You only need to specify the channels you wish to update; all others keep their previous values.
+- Any channel value set to `null` or `-1` in the input will **not change** that channel; its previous value is retained from the buffer.
+- Only non-null, non--1 values in your input array or object will update the corresponding channel.
+- All other channels keep their previous values.
 
 ```haxe
 // Enable persistent mode
 ArtNetHelper.setPersistentMode(true);
 
-// Update channels 10-19 only (other channels retain their previous values)
-ArtNetHelper.makeDMXPacket({ channel: 10, values: [23,44,51,88,0,0,0,0,0,0] });
+// Update channels 10-14 only (other channels retain their previous values)
+ArtNetHelper.makeDMXPacket([
+  null, null, null, null, null, null, null, null, null, null, // channels 0-9: no change
+  255, null, 128, -1, 75 // channels 10-14: update as specified
+]);
 
-// Update sparse channels (e.g., 5, 9, 13)
-ArtNetHelper.makeDMXPacket({ channels: [5, 9, 13], values: [100, 101, 255] });
+// Update channels 5 and 13 only (sparse)
+ArtNetHelper.makeDMXPacket({ channels: [5, 13], values: [100, 255] });
 
 // You can always get a copy of the buffer:
 var currentBuffer = ArtNetHelper.getPersistentBuffer();
@@ -107,7 +110,8 @@ ArtNetHelper.clearPersistentBuffer();
 ```
 
 **Tip:**  
-Use persistent mode for efficient, incremental updates to DMX universes—especially useful for real-time and interactive applications.
+Use persistent mode for efficient, incremental updates to DMX universes—especially useful for real-time and interactive applications.  
+Use `null` or `-1` to indicate "no change" to a channel when updating with arrays or objects in persistent mode.
 
 ---
 

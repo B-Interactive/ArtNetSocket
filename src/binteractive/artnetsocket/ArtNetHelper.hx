@@ -9,9 +9,9 @@ import haxe.ds.StringMap;
  * All buffers are Little Endian per Art-Net specification.
  * Compatible with Haxe 4.3.7 and OpenFL 9.4.1.
  *
- * This library supports both non-persistent and persistent DMX buffer modes.
- * In persistent mode, unspecified channel values retain their previous state.
- * In non-persistent mode, unspecified channel values default to zero.
+ * Persistent DMX buffer mode supports sparse array updates:
+ *   - In persistent mode, use `null` or `-1` to indicate "no change" for a channel.
+ *   - In non-persistent mode, `null` or `-1` is treated as DMX value 0 (failsafe).
  */
 class ArtNetHelper {
     /** Art-Net Protocol ID (8 bytes, zero-padded) */
@@ -35,8 +35,8 @@ class ArtNetHelper {
      */
     public static function setPersistentMode(enable:Bool):Void {
         persistentMode = enable;
+        // Initialize persistent buffer if enabling persistent mode
         if (persistentMode && persistentDMXBuffer == null) {
-            // Initialize buffer to zero for all channels
             persistentDMXBuffer = new ByteArray();
             for (i in 0...DMX_SIZE) persistentDMXBuffer.writeByte(0);
             persistentDMXBuffer.position = 0;
@@ -55,6 +55,7 @@ class ArtNetHelper {
 
     /**
      * Returns a copy of the current persistent DMX buffer.
+     * @return ByteArray containing current persistent DMX state, or null if buffer not initialized
      */
     public static function getPersistentBuffer():ByteArray {
         if (persistentDMXBuffer == null) return null;
@@ -158,18 +159,19 @@ class ArtNetHelper {
     /**
      * Create an ArtDMXPacket from DMX data.
      *
-     * Usage (non-persistent mode):
-     *   - makeDMXPacket([value0, value1, ...]) // all values specified, length = array length
-     *   - makeDMXPacket({universe:0, values:[...]}) // all values specified
-     *   - makeDMXPacket(map) // all values specified
-     *
-     * Usage (persistent mode):
-     *   - makeDMXPacket({channel:10, values:[23,44,51]}) // updates channel 10-12 only, other channels unchanged
-     *   - makeDMXPacket({channels:[10,12,15], values:[23,44,51]}) // updates channels 10,12,15
-     *   - makeDMXPacket({universe:0, values:[...]}) // overwrites channels 0..N with values, rest unchanged
-     *   - makeDMXPacket({universe:0, data:myPartialByteArray, offset:10}) // updates buffer at offset 10
-     *
-     * If not in persistent mode, any unspecified channel values are zero.
+     * Array input:
+     *   - In persistent mode: use `null` or `-1` to leave channel unchanged. Other values update the channel.
+     *   - In non-persistent mode: `null` or `-1` is treated as DMX value 0 (failsafe).
+     * Object input:
+     *   - "values": array of DMX values (see array rules above)
+     *   - "channel": start index for "values" array
+     *   - "channels": sparse list of indices, "values" as parallel array
+     *   - "data": ByteArray (raw DMX values)
+     *   - "offset": start index for "data" ByteArray
+     *   - "universe": Art-Net universe (default 0)
+     *   - "length": number of channels to send (default 512)
+     * Map input:
+     *   - Same as object input, but uses StringMap
      *
      * @param input Various forms (see above)
      * @return ArtDMXPacket
@@ -194,38 +196,73 @@ class ArtNetHelper {
             resultBuffer.position = 0;
         }
 
-        // Array<Int> input: update sequentially from channel 0
+        // Handle array input: Array<Null<Int>>
         if (Std.is(input, Array)) {
-            var arr:Array<Int> = cast input;
+            var arr:Array<Null<Int>> = cast input;
             length = arr.length;
-            for (i in 0...arr.length)
-                resultBuffer[i] = arr[i];
+            for (i in 0...arr.length) {
+                var v:Null<Int> = arr[i];
+                if (persistentMode) {
+                    // Only update channel if value is not null and not -1
+                    if (v != null && v != -1)
+                        resultBuffer[i] = v;
+                    // else: leave buffer unchanged for this channel
+                } else {
+                    // Non-persistent: null/-1 means 0 (failsafe)
+                    resultBuffer[i] = (v == null || v == -1) ? 0 : v;
+                }
+            }
         }
-        // Object with fields
+        // Handle object input
         else if (Reflect.isObject(input) && !Std.is(input, StringMap)) {
             if (Reflect.hasField(input, "universe"))
                 universe = Reflect.field(input, "universe");
 
-            // Sequential values (starting at channel 0 or at specified channel/offset)
+            // "values" field: sequential or sparse updates
             if (Reflect.hasField(input, "values")) {
-                var vals:Array<Int> = Reflect.field(input, "values");
+                var vals:Array<Null<Int>> = Reflect.field(input, "values");
                 if (Reflect.hasField(input, "channel")) {
+                    // Start at specified channel index
                     var channel:Int = Reflect.field(input, "channel");
-                    for (i in 0...vals.length)
-                        if (channel + i < DMX_SIZE)
-                            resultBuffer[channel + i] = vals[i];
+                    for (i in 0...vals.length) {
+                        var v:Null<Int> = vals[i];
+                        if (channel + i < DMX_SIZE) {
+                            if (persistentMode) {
+                                if (v != null && v != -1)
+                                    resultBuffer[channel + i] = v;
+                            } else {
+                                resultBuffer[channel + i] = (v == null || v == -1) ? 0 : v;
+                            }
+                        }
+                    }
                 } else if (Reflect.hasField(input, "channels")) {
+                    // Sparse channel indices
                     var channels:Array<Int> = Reflect.field(input, "channels");
-                    for (i in 0...vals.length)
-                        if (i < channels.length && channels[i] < DMX_SIZE)
-                            resultBuffer[channels[i]] = vals[i];
+                    for (i in 0...vals.length) {
+                        if (i < channels.length && channels[i] < DMX_SIZE) {
+                            var v:Null<Int> = vals[i];
+                            if (persistentMode) {
+                                if (v != null && v != -1)
+                                    resultBuffer[channels[i]] = v;
+                            } else {
+                                resultBuffer[channels[i]] = (v == null || v == -1) ? 0 : v;
+                            }
+                        }
+                    }
                 } else {
-                    // Default: start at channel 0
-                    for (i in 0...vals.length)
-                        resultBuffer[i] = vals[i];
+                    // Default: sequential from channel 0
+                    for (i in 0...vals.length) {
+                        var v:Null<Int> = vals[i];
+                        if (persistentMode) {
+                            if (v != null && v != -1)
+                                resultBuffer[i] = v;
+                        } else {
+                            resultBuffer[i] = (v == null || v == -1) ? 0 : v;
+                        }
+                    }
                 }
             }
-            // ByteArray input with optional offset
+            // "data" field: ByteArray, with optional offset
             if (Reflect.hasField(input, "data")) {
                 var data:ByteArray = Reflect.field(input, "data");
                 var offset:Int = 0;
@@ -235,10 +272,11 @@ class ArtNetHelper {
                     if (offset + i < DMX_SIZE)
                         resultBuffer[offset + i] = data[i];
             }
+            // "length" field: number of channels to send
             if (Reflect.hasField(input, "length"))
                 length = Reflect.field(input, "length");
         }
-        // StringMap for advanced
+        // Handle StringMap input (advanced)
         else if (Std.is(input, StringMap)) {
             var map:StringMap<Dynamic> = cast input;
             if (map.exists("universe")) universe = map.get("universe");
@@ -251,20 +289,41 @@ class ArtNetHelper {
                         resultBuffer[offset + i] = data[i];
             } else if (map.exists("channels") && map.exists("values")) {
                 var channels:Array<Int> = map.get("channels");
-                var vals:Array<Int> = map.get("values");
+                var vals:Array<Null<Int>> = map.get("values");
                 for (i in 0...vals.length)
-                    if (i < channels.length && channels[i] < DMX_SIZE)
-                        resultBuffer[channels[i]] = vals[i];
+                    if (i < channels.length && channels[i] < DMX_SIZE) {
+                        var v:Null<Int> = vals[i];
+                        if (persistentMode) {
+                            if (v != null && v != -1)
+                                resultBuffer[channels[i]] = v;
+                        } else {
+                            resultBuffer[channels[i]] = (v == null || v == -1) ? 0 : v;
+                        }
+                    }
             } else if (map.exists("channel") && map.exists("values")) {
                 var channel:Int = map.get("channel");
-                var vals:Array<Int> = map.get("values");
+                var vals:Array<Null<Int>> = map.get("values");
                 for (i in 0...vals.length)
-                    if (channel + i < DMX_SIZE)
-                        resultBuffer[channel + i] = vals[i];
+                    if (channel + i < DMX_SIZE) {
+                        var v:Null<Int> = vals[i];
+                        if (persistentMode) {
+                            if (v != null && v != -1)
+                                resultBuffer[channel + i] = v;
+                        } else {
+                            resultBuffer[channel + i] = (v == null || v == -1) ? 0 : v;
+                        }
+                    }
             } else if (map.exists("values")) {
-                var vals:Array<Int> = map.get("values");
-                for (i in 0...vals.length)
-                    resultBuffer[i] = vals[i];
+                var vals:Array<Null<Int>> = map.get("values");
+                for (i in 0...vals.length) {
+                    var v:Null<Int> = vals[i];
+                    if (persistentMode) {
+                        if (v != null && v != -1)
+                            resultBuffer[i] = v;
+                    } else {
+                        resultBuffer[i] = (v == null || v == -1) ? 0 : v;
+                    }
+                }
             }
         }
         else throw "Invalid argument for makeDMXPacket";
