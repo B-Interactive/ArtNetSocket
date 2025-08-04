@@ -4,14 +4,16 @@ Cross-platform, event-driven UDP socket tailored for Art-Net (OpenFL/Haxe 4.3+).
 Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR/Flash).
 
 ## Pre-Release Software
-This is pre-release software undergoing active development. Chances are it will not work at all... yet.
+**This is pre-release software undergoing active development. Chances are it will not work at all... yet.**
+
+---
 
 **Features:**
 - Simple DMX send/receive (ArtDMX, ArtPoll, ArtPollReply)
 - Automatic network config (subnet, broadcast)
 - Event-driven protocol parsing
 - Typed packets and helpers
-- **Persistent DMX buffer mode for efficient sparse channel updates**
+- Persistent DMX buffer mode for efficient sparse channel updates
 
 ## Installation
 
