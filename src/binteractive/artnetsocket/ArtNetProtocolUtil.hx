@@ -11,8 +11,10 @@ import binteractive.artnetsocket.ArtNetTypes;
  */
 class ArtNetProtocolUtil {
     public static inline var ARTNET_ID:String = "Art-Net\x00"; // Art-Net signature
-    public static inline var OP_POLL:Int = 0x2000;           // OpCode for ArtPoll
     public static inline var OP_DMX:Int = 0x5000;            // OpCode for ArtDMX
+    public static inline var OP_POLL:Int = 0x2000;           // OpCode for ArtPoll
+    public static inline var OP_POLL_REPLY:Int = 0x2100;     // OpCode for ArtPollReply
+
 
     /**
      * Encodes an ArtDMXPacket into a ByteArray for UDP transmission.
@@ -32,6 +34,46 @@ class ArtNetProtocolUtil {
         ba.writeBytes(pkt.data, 0, pkt.length); // DMX data
         ba.position = 0;
         return ba;
+    }
+
+    /**
+     * Decodes an ArtDMX packet from a ByteArray.
+     * @param ba ByteArray positioned just after the header and opcode.
+     * @return ArtDMXPacket structure or null if invalid.
+     */
+    public static function decodeDMX(ba:ByteArray):ArtDMXPacket {
+        // Position should be after header and opcode.
+        // The next two bytes are protocol version (big endian)
+        var protocolVersion:Int = ba.readUnsignedByte() << 8 | ba.readUnsignedByte();
+        var sequence:Int = ba.readUnsignedByte();
+        var physical:Int = ba.readUnsignedByte();
+        var universe:Int = ba.readUnsignedByte() | (ba.readUnsignedByte() << 8);
+        var length:Int = ba.readUnsignedByte() | (ba.readUnsignedByte() << 8);
+
+        if (length < 1 || length > 512 || ba.bytesAvailable < length) {
+            return null;
+        }
+
+        var data:ByteArray = new ByteArray();
+        ba.readBytes(data, 0, length);
+        data.position = 0;
+
+        // Convert to Bytes for compatibility with ArtDMXPacket typedef
+        #if (haxe_ver >= "4.0.0")
+        var haxeBytes = haxe.io.Bytes.ofData(data);
+        #else
+        var haxeBytes = haxe.io.Bytes.alloc(length);
+        for (i in 0...length) haxeBytes.set(i, data[i]);
+        #end
+
+        return {
+            protocolVersion: protocolVersion,
+            sequence: sequence,
+            physical: physical,
+            universe: universe,
+            length: length,
+            data: haxeBytes
+        };
     }
 
     /**

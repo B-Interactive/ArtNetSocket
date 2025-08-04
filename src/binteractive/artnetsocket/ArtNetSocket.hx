@@ -299,34 +299,15 @@ class ArtNetSocket extends EventDispatcher {
 
         switch (opCode) {
             case ArtNetProtocolUtil.OP_DMX:
-                var protocolVersion:Int = ba.readUnsignedByte() << 8 | ba.readUnsignedByte();
-                var sequence:Int = ba.readUnsignedByte();
-                var physical:Int = ba.readUnsignedByte();
-                var universe:Int = ba.readUnsignedByte() | (ba.readUnsignedByte() << 8);
-                var length:Int = ba.readUnsignedByte() | (ba.readUnsignedByte() << 8);
-
-                var data:ByteArray = new ByteArray();
-                if (length > 0 && length <= 512 && ba.bytesAvailable >= length) {
-                    ba.readBytes(data, 0, length);
+                var dmxPacket:ArtNetTypes.ArtDMXPacket = ArtNetProtocolUtil.decodeDMX(ba);
+                if (dmxPacket != null) {
+                    dispatchEvent(new ArtDMXEvent(ARTDMX, dmxPacket, host, port));
                 }
-                data.position = 0;
-
-                var packet:ArtNetTypes.ArtDMXPacket = {
-                    protocolVersion: protocolVersion,
-                    sequence: sequence,
-                    physical: physical,
-                    universe: universe,
-                    length: length,
-                    data: data
-                };
-                dispatchEvent(new ArtDMXEvent(ARTDMX, packet, host, port));
-
             case ArtNetProtocolUtil.OP_POLL:
                 // ArtPoll requests are typically only relevant for nodes.
                 // You may optionally dispatch a custom event or just ignore.
 
-            case 0x2100: // ArtPollReply
-                // Move parsing to ArtNetProtocolUtil for clarity
+            case ArtNetProtocolUtil.OP_POLL_REPLY: // ArtPollReply
                 var pollReply:ArtNetTypes.ArtPollReplyPacket = ArtNetProtocolUtil.decodePollReply(ba);
 
                 // Ensure required fields are set (fallback to sender if not present)
@@ -341,6 +322,7 @@ class ArtNetSocket extends EventDispatcher {
                 dispatchEvent(new ArtNetDataEvent(DATA, ba, host, port));
         }
     }
+
 
     /**
      * Event handler for socket errors.
