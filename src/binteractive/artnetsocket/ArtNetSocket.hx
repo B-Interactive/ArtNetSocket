@@ -35,6 +35,9 @@ class ArtNetSocket extends EventDispatcher {
 
     public var defaultUniverse:Int;    // Default Art-Net universe for DMX packets
     public var defaultLength:Int;      // Default DMX packet length
+    public var persistentDMX:Bool;     // Whether to use persistent DMX buffering (default true)
+    
+    private var dmxBuffer:Array<Int>;  // Persistent DMX buffer for retaining channel values
 
     /**
      * Constructor: Initializes and binds the UDP socket.
@@ -49,6 +52,13 @@ class ArtNetSocket extends EventDispatcher {
         this.port = port != null ? port : 6454;
         this.defaultUniverse = defaultUniverse != null ? defaultUniverse : 0;
         this.defaultLength = defaultLength != null ? defaultLength : 512;
+        this.persistentDMX = true; // Default to persistent DMX buffering
+        
+        // Initialize DMX buffer with 512 channels, all set to 0
+        this.dmxBuffer = new Array<Int>();
+        for (i in 0...512) {
+            this.dmxBuffer[i] = 0;
+        }
 
         // Check platform support for UDP sockets.
         if (!DatagramSocket.isSupported) {
@@ -195,13 +205,14 @@ class ArtNetSocket extends EventDispatcher {
     /**
      * Creates an ArtDMXPacket from DMX channel data.
      * Supported input types:
-     *   - Array<Null<Int>>: DMX values for channels [0..N]
-     *   - Object/StringMap:
-     *       - "data": ByteArray (DMX values for channels)
-     *       - "universe": Art-Net universe (overrides default)
-     *       - "length": Number of channels to send (overrides default)
+     *   - Array<Int>: DMX values for channels [0..N]
+     *   - Map<Int,Int>: Per-channel updates (channel index -> value)
+     *   - ByteArray: DMX values for channels [0..N]
      *
-     * @param input DMX data (array, object, or StringMap)
+     * When persistentDMX is true (default), unspecified channels retain their
+     * previous values. When false, the buffer is reset to zero before each packet.
+     *
+     * @param input DMX data (Array<Int>, Map<Int,Int>, or ByteArray)
      * @param ?universe Optional universe override
      * @param ?length Optional length override
      * @return ArtDMXPacket structure ready for sending
@@ -209,58 +220,73 @@ class ArtNetSocket extends EventDispatcher {
     public function makeDMXPacket(input:Dynamic, ?universe:Int, ?length:Int):ArtDMXPacket {
         var finalUniverse = universe != null ? universe : defaultUniverse;
         var finalLength = length != null ? length : defaultLength;
-        var resultBuffer:ByteArray = new ByteArray();
-
-        // Initialize buffer to zero for all 512 DMX channels.
-        for (i in 0...512) resultBuffer.writeByte(0);
-        resultBuffer.position = 0;
-
-        // Array input: [DMX1, DMX2, ...]
+        
+        // If persistentDMX is false, reset buffer to zero
+        if (!persistentDMX) {
+            for (i in 0...512) {
+                dmxBuffer[i] = 0;
+            }
+        }
+        
+        // Process input based on type
         if (Std.is(input, Array)) {
-            var arr:Array<Null<Int>> = cast input;
-            finalLength = arr.length;
+            // Array<Int> or Array<Null<Int>> input: DMX values for channels [0..N]
+            var arr:Array<Dynamic> = cast input;
+            finalLength = Math.max(finalLength, arr.length);
             for (i in 0...arr.length) {
-                var v:Null<Int> = arr[i];
-                // Null/-1 means 0 (failsafe)
-                resultBuffer[i] = (v == null || v == -1) ? 0 : v;
+                if (i < 512) {
+                    var value = arr[i];
+                    // When persistentDMX is true, null or -1 means "no change"
+                    // When persistentDMX is false, null or -1 means 0
+                    if (value != null && value != -1) {
+                        dmxBuffer[i] = value;
+                    } else if (!persistentDMX) {
+                        dmxBuffer[i] = 0;
+                    }
+                    // When persistentDMX is true and value is null/-1, keep existing value
+                }
             }
         }
-        // Object input: {data: ByteArray, universe: Int, length: Int}
-        else if (Reflect.isObject(input) && !Std.is(input, StringMap)) {
-            if (Reflect.hasField(input, "universe")) finalUniverse = Reflect.field(input, "universe");
-            if (Reflect.hasField(input, "length")) finalLength = Reflect.field(input, "length");
-            if (Reflect.hasField(input, "data")) {
-                var data:ByteArray = Reflect.field(input, "data");
-                finalLength = data.length;
-                for (i in 0...data.length)
-                    if (i < 512)
-                        resultBuffer[i] = data[i];
+        else if (Std.is(input, Map)) {
+            // Map<Int,Int> input: Per-channel updates
+            var map:Map<Int,Int> = cast input;
+            for (channel in map.keys()) {
+                if (channel >= 0 && channel < 512) {
+                    var value = map.get(channel);
+                    if (value != null && value != -1) {
+                        dmxBuffer[channel] = value;
+                        // Update finalLength if needed to include this channel
+                        finalLength = Math.max(finalLength, channel + 1);
+                    }
+                }
             }
         }
-        // StringMap input: same as object, but using map methods
-        else if (Std.is(input, StringMap)) {
-            var map:StringMap<Dynamic> = cast input;
-            if (map.exists("universe")) finalUniverse = map.get("universe");
-            if (map.exists("length")) finalLength = map.get("length");
-            if (map.exists("data")) {
-                var data:ByteArray = map.get("data");
-                finalLength = data.length;
-                for (i in 0...data.length)
-                    if (i < 512)
-                        resultBuffer[i] = data[i];
+        else if (Std.is(input, ByteArray)) {
+            // ByteArray input: DMX values for channels [0..N]
+            var byteArray:ByteArray = cast input;
+            finalLength = Math.max(finalLength, byteArray.length);
+            byteArray.position = 0;
+            for (i in 0...byteArray.length) {
+                if (i < 512) {
+                    dmxBuffer[i] = byteArray.readUnsignedByte();
+                }
             }
         }
-        else throw "Invalid argument for makeDMXPacket";
-
+        else {
+            throw "Invalid argument for makeDMXPacket. Supported types: Array<Int>, Map<Int,Int>, ByteArray";
+        }
+        
         // Clamp length to 512 channels
         if (finalLength > 512) finalLength = 512;
-
-        // Copy buffer data for output
+        
+        // Create output ByteArray from buffer
         var packetData = new ByteArray();
-        packetData.writeBytes(resultBuffer, 0, finalLength);
+        for (i in 0...finalLength) {
+            packetData.writeByte(dmxBuffer[i]);
+        }
         packetData.position = 0;
-
-        // Return a structure matching ArtDMXPacket typedef
+        
+        // Return ArtDMXPacket structure
         return {
             protocolVersion: 14,
             sequence: 0,
