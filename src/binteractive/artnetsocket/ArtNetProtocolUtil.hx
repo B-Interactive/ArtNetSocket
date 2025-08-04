@@ -1,6 +1,7 @@
 package binteractive.artnetsocket;
 
 import openfl.utils.ByteArray;
+import binteractive.artnetsocket.ArtNetTypes;
 
 /**
  * ArtNetProtocolUtil

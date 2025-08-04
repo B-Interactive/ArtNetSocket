@@ -2,10 +2,13 @@ package binteractive.artnetsocket;
 
 import openfl.events.DatagramSocketDataEvent;
 import openfl.events.IOErrorEvent;
+import openfl.net.DatagramSocket;
 import openfl.utils.ByteArray;
-import binteractive.artnetsocket.ArtNetTypes;
+import openfl.events.EventDispatcher;
 import binteractive.artnetsocket.ArtNetSocketEvents;
+import binteractive.artnetsocket.ArtNetTypes;
 import binteractive.artnetsocket.ArtNetProtocolUtil;
+import binteractive.artnetsocket.ArtNetNetworkUtil;
 
 /**
  * ArtNetSocket
@@ -286,7 +289,7 @@ class ArtNetSocket extends EventDispatcher {
         var id:String = ba.readUTFBytes(8);
         if (id != ArtNetProtocolUtil.ARTNET_ID) {
             // Not an Art-Net packet: dispatch raw data event
-            dispatchEvent(new ArtNetDataEvent(DATA, ba, e.address, e.port));
+            dispatchEvent(new ArtNetDataEvent(DATA, ba, e.srcAddress, e.srcPort));
             return;
         }
 
@@ -318,7 +321,7 @@ class ArtNetSocket extends EventDispatcher {
                 };
 
                 // Dispatch high-level event for ArtDMX packet
-                dispatchEvent(new ArtDMXEvent(ARTDMX, packet, e.address, e.port));
+                dispatchEvent(new ArtDMXEvent(ARTDMX, packet, e.srcAddress, e.srcPort));
 
             case ArtNetProtocolUtil.OP_POLL:
                 // ArtPoll packets are node discovery requests (not replies)
@@ -342,11 +345,11 @@ class ArtNetSocket extends EventDispatcher {
                     shortName: shortName,
                     // Extend with more fields if needed
                 };
-                dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, e.address, e.port));
+                dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, e.srcAddress, e.srcPort));
 
             default:
                 // Unknown or unsupported Art-Net packet; dispatch raw data event
-                dispatchEvent(new ArtNetDataEvent(DATA, ba, e.address, e.port));
+                dispatchEvent(new ArtNetDataEvent(DATA, ba, e.srcAddress, e.srcPort));
         }
     }
 
