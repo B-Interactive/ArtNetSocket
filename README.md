@@ -31,11 +31,17 @@ var socket = new ArtNetSocket(); // Uses defaults: address="0.0.0.0", port=6454,
 // Create a DMX packet (array form)
 var pkt = socket.makeDMXPacket([0, 255, 128, 64, 0, 0, 0, 0]);
 
-// Or with a ByteArray:
+// Or with a ByteArray directly:
 var ba = new ByteArray();
 ba.writeByte(100);
 ba.writeByte(200);
-pkt = socket.makeDMXPacket({ data: ba });
+pkt = socket.makeDMXPacket(ba);
+
+// Or with a Map for per-channel updates:
+var channelMap = new Map<Int,Int>();
+channelMap.set(5, 255);
+channelMap.set(10, 128);
+pkt = socket.makeDMXPacket(channelMap);
 
 // Optional: override universe/length per packet
 pkt = socket.makeDMXPacket([0, 255, 128], 2, 3);
@@ -52,62 +58,56 @@ socket.sendPoll();
 
 ---
 
-## ArtNetHelper DMX Packet Construction
+## ArtNetSocket DMX Packet Construction
 
-ArtNetHelper provides a simple way to create an ArtDMXPacket for sending DMX data.  
+ArtNetSocket provides a simple way to create an ArtDMXPacket for sending DMX data.  
 **Supports both persistent and non-persistent buffer modes.**
 
-### Non-Persistent Mode (Default)
+### Persistent Mode (Default)
 
+Persistent mode is enabled by default. The library **retains a DMX buffer behind the scenes**:
+- Any channel value set to `null` or `-1` in array input will **not change** that channel; its previous value is retained from the buffer.
+- Only non-null, non--1 values in your input array will update the corresponding channel.
+- All other channels keep their previous values.
+- Map and ByteArray inputs always overwrite the channels they specify.
+
+```haxe
+var socket = new ArtNetSocket(); // persistentDMX defaults to true
+
+// Method 1: Array input - update specific channels, others retain previous values
+var pkt = socket.makeDMXPacket([255, null, 128, -1, 75]); // channels 1 and 3 unchanged
+
+// Method 2: Map input for sparse updates
+var channelMap = new Map<Int,Int>();
+channelMap.set(5, 100);   // Set channel 5 to 100
+channelMap.set(13, 255);  // Set channel 13 to 255
+var pkt = socket.makeDMXPacket(channelMap); // Other channels retain previous values
+
+// Method 3: ByteArray input (overwrites channels 0..N)
+var ba = new ByteArray();
+ba.writeByte(50);
+ba.writeByte(75);
+ba.writeByte(100);
+var pkt = socket.makeDMXPacket(ba); // Channels 0-2 set, others retain values
+```
+
+### Non-Persistent Mode
+
+Disable persistent mode to reset the buffer before each packet:
 - Any unspecified, `null`, or `-1` channel value is assumed to be **0** each time you call `makeDMXPacket`.
 - You must provide all channel values you wish to set for every packet.
 
 ```haxe
-// Method 1: From an array of DMX values (channels 0..N)
-var pkt = ArtNetHelper.makeDMXPacket([0, 255, 128, 0, ...]); // Unspecified/null/-1 channels = 0
+// Disable persistent mode
+socket.persistentDMX = false;
 
-// Method 2: Specify options using an object
-var pkt = ArtNetHelper.makeDMXPacket({
-    universe: 0,
-    values: [10, 20, 30, ...] // DMX values (array). Unspecified/null/-1 channels = 0
-});
+// Array input - unspecified/null/-1 channels become 0
+var pkt = socket.makeDMXPacket([255, null, 128, -1]); // Results in [255, 0, 128, 0, 0, 0, ...]
 
-// Method 3: Advanced usage with a Haxe Map
-var map = new Map<String, Dynamic>();
-map.set("universe", 0);
-map.set("length", 512);
-map.set("data", myByteArray); // ByteArray containing DMX data
-var pkt = ArtNetHelper.makeDMXPacket(map);
-```
-
-### Persistent Mode
-
-Enable persistent mode to let the library **retain a DMX buffer behind the scenes**:
-- Any channel value set to `null` or `-1` in the input will **not change** that channel; its previous value is retained from the buffer.
-- Only non-null, non--1 values in your input array or object will update the corresponding channel.
-- All other channels keep their previous values.
-
-```haxe
-// Enable persistent mode
-ArtNetHelper.setPersistentMode(true);
-
-// Update channels 10-14 only (other channels retain their previous values)
-ArtNetHelper.makeDMXPacket([
-  null, null, null, null, null, null, null, null, null, null, // channels 0-9: no change
-  255, null, 128, -1, 75 // channels 10-14: update as specified
-]);
-
-// Update channels 5 and 13 only (sparse)
-ArtNetHelper.makeDMXPacket({ channels: [5, 13], values: [100, 255] });
-
-// You can always get a copy of the buffer:
-var currentBuffer = ArtNetHelper.getPersistentBuffer();
-
-// Disable persistent mode (reverts to non-persistent behavior)
-ArtNetHelper.setPersistentMode(false);
-
-// Reset persistent buffer to zero if needed
-ArtNetHelper.clearPersistentBuffer();
+// Map and ByteArray inputs work the same, but other channels are 0
+var channelMap = new Map<Int,Int>();
+channelMap.set(10, 255);
+var pkt = socket.makeDMXPacket(channelMap); // Channel 10 = 255, all others = 0
 ```
 
 **Tip:**  
