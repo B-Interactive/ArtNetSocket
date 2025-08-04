@@ -51,6 +51,74 @@ class ArtNetProtocolUtil {
     }
 
     /**
+     * Decodes an ArtPollReply packet from a ByteArray.
+     * @param ba ByteArray positioned just after the opcode.
+     * @return ArtPollReplyPacket structure.
+     */
+    public static function decodePollReply(ba:ByteArray):ArtPollReplyPacket {
+        // This expects ba.position is at the start of the packet (after header+opcode)
+        // If not, adjust as needed.
+        // For compatibility: skip protocol version bytes if present (depends on implementation)
+        // For ArtPollReply, after header/opcode, protocol version is usually 2 bytes (skip)
+        ba.position += 2;
+
+        var ipBytes:Array<Int> = [];
+        for (i in 0...4) ipBytes.push(ba.readUnsignedByte());
+        var ip = ipBytes.join(".");
+
+        var portVal = ba.readUnsignedShort();
+        var version = ba.readUnsignedShort();
+        var shortName = ba.readUTFBytes(18);
+        var longName = ba.readUTFBytes(18);
+        var nodeReport = ba.readUTFBytes(64);
+        var oem = ba.readUnsignedShort();
+        var numPorts = ba.readUnsignedByte();
+
+        var portTypes:Array<Int> = [];
+        for (i in 0...4) portTypes.push(ba.readUnsignedByte());
+
+        var goodInput:Array<Int> = [];
+        for (i in 0...4) goodInput.push(ba.readUnsignedByte());
+
+        var goodOutput:Array<Int> = [];
+        for (i in 0...4) goodOutput.push(ba.readUnsignedByte());
+
+        var swIn:Array<Int> = [];
+        for (i in 0...4) swIn.push(ba.readUnsignedByte());
+
+        var swOut:Array<Int> = [];
+        for (i in 0...4) swOut.push(ba.readUnsignedByte());
+
+        var mac:Array<Int> = [];
+        for (i in 0...6) mac.push(ba.readUnsignedByte());
+
+        var bindIpBytes:Array<Int> = [];
+        for (i in 0...4) bindIpBytes.push(ba.readUnsignedByte());
+        var bindIp = bindIpBytes.join(".");
+
+        var style = ba.readUnsignedByte();
+
+        return {
+            ip: ip,
+            port: portVal,
+            version: version,
+            shortName: shortName,
+            longName: longName,
+            nodeReport: nodeReport,
+            oem: oem,
+            numPorts: numPorts,
+            portTypes: portTypes,
+            goodInput: goodInput,
+            goodOutput: goodOutput,
+            swIn: swIn,
+            swOut: swOut,
+            mac: mac,
+            bindIp: bindIp,
+            style: style
+        };
+    }
+
+    /**
      * Helper: Writes a 16-bit unsigned integer in little-endian order.
      * @param ba Target ByteArray
      * @param value Integer value to write

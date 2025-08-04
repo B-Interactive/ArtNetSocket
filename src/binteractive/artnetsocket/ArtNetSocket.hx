@@ -283,22 +283,22 @@ class ArtNetSocket extends EventDispatcher {
      */
     private function onSocketData(e:DatagramSocketDataEvent):Void {
         var ba:ByteArray = e.data;
-        ba.position = 0;
+        var host = e.srcAddress;
+        var port = e.srcPort;
 
-        // Validate Art-Net header ("Art-Net\0" signature)
+        ba.position = 0;
+        // Check for valid Art-Net header
         var id:String = ba.readUTFBytes(8);
         if (id != ArtNetProtocolUtil.ARTNET_ID) {
-            // Not an Art-Net packet: dispatch raw data event
-            dispatchEvent(new ArtNetDataEvent(DATA, ba, e.srcAddress, e.srcPort));
+            dispatchEvent(new ArtNetDataEvent(DATA, ba, host, port));
             return;
         }
 
-        // Read OpCode (little-endian)
+        // Read opcode (little endian)
         var opCode:Int = ba.readUnsignedByte() | (ba.readUnsignedByte() << 8);
 
         switch (opCode) {
             case ArtNetProtocolUtil.OP_DMX:
-                // Parse ArtDMX packet
                 var protocolVersion:Int = ba.readUnsignedByte() << 8 | ba.readUnsignedByte();
                 var sequence:Int = ba.readUnsignedByte();
                 var physical:Int = ba.readUnsignedByte();
@@ -311,7 +311,7 @@ class ArtNetSocket extends EventDispatcher {
                 }
                 data.position = 0;
 
-                var packet:ArtDMXPacket = {
+                var packet:ArtNetTypes.ArtDMXPacket = {
                     protocolVersion: protocolVersion,
                     sequence: sequence,
                     physical: physical,
@@ -319,37 +319,26 @@ class ArtNetSocket extends EventDispatcher {
                     length: length,
                     data: data
                 };
-
-                // Dispatch high-level event for ArtDMX packet
-                dispatchEvent(new ArtDMXEvent(ARTDMX, packet, e.srcAddress, e.srcPort));
+                dispatchEvent(new ArtDMXEvent(ARTDMX, packet, host, port));
 
             case ArtNetProtocolUtil.OP_POLL:
-                // ArtPoll packets are node discovery requests (not replies)
-                // You may choose to handle ArtPoll requests here if needed.
+                // ArtPoll requests are typically only relevant for nodes.
+                // You may optionally dispatch a custom event or just ignore.
 
-            case 0x2100: // OpCode for ArtPollReply (node info)
-                // Parse ArtPollReply (simplified, extend as needed)
-                // Skipping protocolVersion (2 bytes)
-                ba.position += 2;
-                var ip:String = "";
-                // Next 4 bytes are IP address
-                var ipBytes:Array<Int> = [];
-                for (i in 0...4) ipBytes.push(ba.readUnsignedByte());
-                ip = ipBytes.join(".");
-                // Next bytes contain node name, etc. (see Art-Net spec)
-                var shortName:String = ba.readUTFBytes(18);
-                // Additional fields can be parsed as needed
+            case 0x2100: // ArtPollReply
+                // Move parsing to ArtNetProtocolUtil for clarity
+                var pollReply:ArtNetTypes.ArtPollReplyPacket = ArtNetProtocolUtil.decodePollReply(ba);
 
-                var pollReply = {
-                    ip: ip,
-                    shortName: shortName,
-                    // Extend with more fields if needed
-                };
-                dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, e.srcAddress, e.srcPort));
+                // Ensure required fields are set (fallback to sender if not present)
+                if (pollReply.ip == null || pollReply.ip == "") pollReply.ip = host;
+                if (pollReply.bindIp == null || pollReply.bindIp == "") pollReply.bindIp = host;
+                if (pollReply.port == null) pollReply.port = port;
+
+                dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, host, port));
 
             default:
-                // Unknown or unsupported Art-Net packet; dispatch raw data event
-                dispatchEvent(new ArtNetDataEvent(DATA, ba, e.srcAddress, e.srcPort));
+                // Fallback for unrecognized packets: raw data
+                dispatchEvent(new ArtNetDataEvent(DATA, ba, host, port));
         }
     }
 
