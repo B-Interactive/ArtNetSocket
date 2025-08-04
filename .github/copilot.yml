@@ -1,0 +1,11 @@
+build:
+  command: |
+    haxelib install openfl --quiet
+    haxelib run openfl setup -y
+    haxe test_project/build.hxml
+
+test:
+  command: |
+    haxelib install openfl --quiet
+    haxelib run openfl setup -y
+    haxe test_project/test.hxml

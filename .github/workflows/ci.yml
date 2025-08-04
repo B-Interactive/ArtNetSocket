@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Haxe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y haxe
+          haxe --version
+          haxelib setup ~/.haxelib
+
+      - name: Install OpenFL and dependencies
+        run: |
+          haxelib install openfl --quiet
+          haxelib run openfl setup -y
+
+      - name: Create minimal test project
+        run: |
+          mkdir -p test_project/src
+          echo 'class Main { static function main() trace("Test!"); }' > test_project/src/Main.hx
+          echo '
+          -cp src
+          -main Main
+          ' > test_project/build.hxml
+          echo '
+          -cp src
+          -main Main
+          ' > test_project/test.hxml
+
+      - name: Build library against minimal project
+        run: haxe test_project/build.hxml
+
+      - name: Run tests in minimal project
+        run: haxe test_project/test.hxml
