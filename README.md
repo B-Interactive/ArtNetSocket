@@ -8,6 +8,7 @@ Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR
 - Automatic network config (subnet, broadcast)
 - Event-driven protocol parsing
 - Typed packets and helpers
+- **Persistent DMX buffer mode for efficient channel updates**
 
 ## Installation
 
@@ -37,7 +38,7 @@ socket.addEventListener(ArtNetSocket.ERROR, function(e) {
     trace('Socket error: ' + cast(e, ArtNetErrorEvent).message);
 });
 
-// Send DMX to one address
+// Send DMX to one address (non-persistent mode, array form)
 var dmx = ArtNetHelper.makeDMXPacket([0,0,255,255,0,0,0,0]);
 socket.sendDMX(dmx, "192.168.1.100");
 
@@ -52,16 +53,23 @@ socket.sendPoll();
 
 ## ArtNetHelper DMX Packet Construction
 
-ArtNetHelper provides a simple way to create an ArtDMXPacket for sending DMX data.
+ArtNetHelper provides a simple way to create an ArtDMXPacket for sending DMX data.  
+**Now supports both persistent and non-persistent buffer modes.**
+
+### Non-Persistent Mode
+
+By default, ArtNetHelper uses non-persistent mode:
+- Any unspecified channel value is assumed to be **0** each time you call `makeDMXPacket`.
+- You must provide all channel values you wish to set for every packet.
 
 ```haxe
-// Method 1: From an array of DMX values
-var pkt = ArtNetHelper.makeDMXPacket([0, 255, 128, 0, ...]);
+// Method 1: From an array of DMX values (channels 0..N)
+var pkt = ArtNetHelper.makeDMXPacket([0, 255, 128, 0, ...]); // Unspecified channels = 0
 
 // Method 2: Specify options using an object
 var pkt = ArtNetHelper.makeDMXPacket({
     universe: 0,              // DMX universe
-    values: [10, 20, 30, ...] // DMX values (array)
+    values: [10, 20, 30, ...] // DMX values (array). Unspecified channels = 0
 });
 
 // Method 3: Advanced usage with a Haxe Map
@@ -72,8 +80,34 @@ map.set("data", myByteArray); // ByteArray containing DMX data
 var pkt = ArtNetHelper.makeDMXPacket(map);
 ```
 
+### Persistent Mode
+
+Enable persistent mode to let the library **retain a DMX buffer behind the scenes**:
+- Any unspecified channel value will fall back to its previous state in the persistent buffer.
+- You only need to specify the channels you wish to update; all others keep their previous values.
+
+```haxe
+// Enable persistent mode
+ArtNetHelper.setPersistentMode(true);
+
+// Update channels 10-19 only (other channels retain their previous values)
+ArtNetHelper.makeDMXPacket({ channel: 10, values: [23,44,51,88,0,0,0,0,0,0] });
+
+// Update sparse channels (e.g., 5, 9, 13)
+ArtNetHelper.makeDMXPacket({ channels: [5, 9, 13], values: [100, 101, 255] });
+
+// You can always get a copy of the buffer:
+var currentBuffer = ArtNetHelper.getPersistentBuffer();
+
+// Disable persistent mode (reverts to non-persistent behavior)
+ArtNetHelper.setPersistentMode(false);
+
+// Reset persistent buffer to zero if needed
+ArtNetHelper.clearPersistentBuffer();
+```
+
 **Tip:**  
-For most use cases, you can simply use an array of DMX values for quick packet creation.
+Use persistent mode for efficient, incremental updates to DMX universes—especially useful for real-time and interactive applications.
 
 ---
 
@@ -157,9 +191,9 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 This library is designed to interoperate with all mainstream Art-Net II, III, and IV hardware and software for standard DMX data and network discovery.
 
 - **ArtDMX:** Fully supported for all Art-Net 2, 3, and 4 nodes and controllers. The packet structure follows the core Art-Net specification and will be understood by all compliant devices.
-- **ArtPoll & ArtPollReply:** Discovery (sending ArtPoll, receiving and parsing ArtPollReply) matches the protocol standards from Art-Net 2 forward. Essential node details (IP, names, universes, etc.) are parsed and exposed.
+- **ArtPoll & ArtPollReply:** Discovery (sending ArtPoll, receiving and parsing ArtPollReply) matches the protocol standards from Art-Net 2 forward. Essential node details (IP, names, universes, etc.)[...]
 - **Protocol Versioning:** The library uses protocol version 14 (Art-Net 4) by default; all Art-Net 2/3/4 nodes will interoperate correctly.
-- **Limitations:** Advanced Art-Net 4 features (such as IPv6 support, extended diagnostics, or support for extra-large universe counts) are not explicitly implemented. The core features implemented here cover nearly all real-world Art-Net usage.
+- **Limitations:** Advanced Art-Net 4 features (such as IPv6 support, extended diagnostics, or support for extra-large universe counts) are not explicitly implemented. The core features implemented he[...]
 
 **Summary:**  
 For standard DMX transport and node discovery, this library is compatible with any Art-Net 2/3/4 node or controller you are likely to encounter.
