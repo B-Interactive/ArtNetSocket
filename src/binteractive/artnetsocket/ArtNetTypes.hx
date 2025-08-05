@@ -1,6 +1,6 @@
 package binteractive.artnetsocket;
 
-import haxe.io.Bytes;
+import openfl.utils.ByteArray;
 
 /**
  * Art-Net DMX Packet structure.
@@ -11,7 +11,7 @@ typedef ArtDMXPacket = {
     var physical:Int;
     var universe:Int;
     var length:Int;
-    var data:Bytes;
+    var data:ByteArray;
 }
 
 /**

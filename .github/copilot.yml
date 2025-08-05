@@ -1,11 +1,60 @@
-build:
-  command: |
-    haxelib install openfl --quiet
-    haxelib run openfl setup -y
-    haxe test_project/build.hxml
+validation:
+  build_commands:
+    - name: "Install Haxe dependencies"
+      run: "haxelib install openfl"
+    - name: "Build CPP target"
+      run: "openfl build cpp"
+      
+  test_commands:
+    - name: "Run CPP tests"
+      run: "openfl test cpp"
+      
+code_patterns:
+  # Haxe/OpenFL specific patterns
+  file_extensions:
+    - "*.hx"
+    - "*.xml"
+    - "*.json"
+    
+  # Art-Net protocol constants and validation
+  artnet_constants:
+    - "Art-Net packet should use protocol version 14"
+    - "DMX universe should be 0-32767"
+    - "DMX channel values should be 0-255"
+    - "Art-Net port should default to 6454"
+    
+  # OpenFL DatagramSocket usage patterns
+  socket_patterns:
+    - "Use DatagramSocket.isSupported check before creating socket"
+    - "Always handle DatagramSocketDataEvent.DATA and IOErrorEvent.IO_ERROR"
+    - "Remember to call socket.receive() after binding"
+    - "Use try-catch blocks around socket operations"
+    
+  # DMX buffer management
+  dmx_patterns:
+    - "DMX buffer should be 512 channels maximum" 
+    - "Channel values should be clamped to 0-255 range"
+    - "Persistent mode should retain previous channel values for null/-1 inputs"
+    - "Non-persistent mode should reset unspecified channels to 0"
 
-test:
-  command: |
-    haxelib install openfl --quiet
-    haxelib run openfl setup -y
-    haxe test_project/test.hxml
+framework_info:
+  name: "OpenFL/Haxe"
+  language: "Haxe"
+  version: "4.3+"
+  target_platforms:
+    - "cpp"
+    - "neko"
+    - "hl"
+    - "flash/AIR"
+  
+  key_libraries:
+    - "openfl.net.DatagramSocket"
+    - "openfl.utils.ByteArray"
+    - "openfl.events.EventDispatcher"
+    
+testing_guidelines:
+  - "Test Art-Net packet encoding/decoding with known reference data"
+  - "Validate DMX channel value ranges and buffer persistence"
+  - "Test network discovery and error handling scenarios"
+  - "Verify cross-platform socket compatibility"
+  - "Test with real Art-Net hardware/software when possible"
