@@ -63,7 +63,7 @@ class DMXController {
         // Example: Forward received data to another universe
         if (dmxPacket.universe == 0) {
             // Retransmit to universe 1 with modified data
-            var forwardPacket = socket.makeDMXPacket(channelData, 1, dmxPacket.length);
+            var forwardPacket = socket.makeDMXFromArray(channelData, 1, dmxPacket.length);
             socket.broadcastDMX(forwardPacket);
         }
     }
@@ -141,7 +141,7 @@ class DMXController {
     private function startDMXOutput():Void {
         // Example 1: Array input with persistent buffering (default behavior)
         // Set channels 1, 3, and 5 to specific values, leave others unchanged
-        var pkt1 = socket.makeDMXPacket([255, null, 128, null, 64]);
+        var pkt1 = socket.makeDMXFromArray([255, null, 128, null, 64]);
         socket.broadcastDMX(pkt1);
         trace("Sent DMX with array input - channels 1,3,5 set, others persistent");
 
@@ -152,7 +152,7 @@ class DMXController {
         channelMap.set(11, 150);  // Set channel 11 (red) to 150
         channelMap.set(12, 100);  // Set channel 12 (green) to 100
         channelMap.set(13, 50);   // Set channel 13 (blue) to 50
-        var pkt2 = socket.makeDMXPacket(channelMap);
+        var pkt2 = socket.makeDMXFromMap(channelMap);
         socket.broadcastDMX(pkt2);
         trace("Sent DMX with map input - updated RGB fixture channels 10-13");
 
@@ -162,18 +162,18 @@ class DMXController {
         for (i in 0...16) {
             ba.writeByte(Math.floor(Math.random() * 255)); // Random pattern
         }
-        var pkt3 = socket.makeDMXPacket(ba);
+        var pkt3 = socket.makeDMXFromByteArray(ba);
         socket.sendDMX(pkt3, "192.168.1.100");  // Send to specific node
         trace("Sent DMX with ByteArray input - 16 random values to specific node");
 
         // Example 4: Override universe and length per packet
-        var pkt4 = socket.makeDMXPacket([255, 128, 64], 2, 3);  // Universe 2, 3 channels
+        var pkt4 = socket.makeDMXFromArray([255, 128, 64], 2, 3);  // Universe 2, 3 channels
         socket.broadcastDMX(pkt4);
         trace("Sent DMX to universe 2 with 3 channels");
 
         // Example 5: Non-persistent mode (original behavior)
         socket.persistentDMX = false;
-        var pkt5 = socket.makeDMXPacket([100, null, 200]);  // null becomes 0
+        var pkt5 = socket.makeDMXFromArray([100, null, 200]);  // null becomes 0
         socket.broadcastDMX(pkt5);
         trace("Sent DMX in non-persistent mode - null values became 0");
 
@@ -191,7 +191,7 @@ class DMXController {
             for (ch in 0...8) {
                 fadePattern.push(level);
             }
-            var pkt = socket.makeDMXPacket(fadePattern);
+            var pkt = socket.makeDMXFromArray(fadePattern);
             socket.sendDMX(pkt, nodeIP);
         }
         trace('Sent welcome fade pattern to node at ${nodeIP}');

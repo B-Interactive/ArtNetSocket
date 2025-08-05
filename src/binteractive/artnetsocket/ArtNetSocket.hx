@@ -203,21 +203,16 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Creates an ArtDMXPacket from DMX channel data.
-     * Supported input types:
-     *   - Array<Int>: DMX values for channels [0..N]
-     *   - Map<Int,Int>: Per-channel updates (channel index -> value)
-     *   - ByteArray: DMX values for channels [0..N]
+     * Creates an ArtDMXPacket from an Array of DMX channel values.
+     * When persistentDMX is true (default), null or -1 values mean "no change" - 
+     * those channels retain their previous values. When false, null or -1 become 0.
      *
-     * When persistentDMX is true (default), unspecified channels retain their
-     * previous values. When false, the buffer is reset to zero before each packet.
-     *
-     * @param input DMX data (Array<Int>, Map<Int,Int>, or ByteArray)
+     * @param arr Array of DMX values for channels [0..N], null or -1 values mean "no change" when persistentDMX is true
      * @param ?universe Optional universe override
      * @param ?length Optional length override
      * @return ArtDMXPacket structure ready for sending
      */
-    public function makeDMXPacket(input:Dynamic, ?universe:Int, ?length:Int):ArtDMXPacket {
+    public function makeDMXFromArray(arr:Array<Int>, ?universe:Int, ?length:Int):ArtDMXPacket {
         var finalUniverse = universe != null ? universe : defaultUniverse;
         var finalLength = length != null ? length : defaultLength;
 
@@ -228,28 +223,47 @@ class ArtNetSocket extends EventDispatcher {
             }
         }
 
-        // Process input based on type
-        if (Std.isOfType(input, Array)) {
-            // Array<Int> or Array<Null<Int>> input: DMX values for channels [0..N]
-            var arr:Array<Dynamic> = cast input;
-            finalLength = Std.int(Math.max(finalLength, arr.length));
-            for (i in 0...arr.length) {
-                if (i < 512) {
-                    var value = arr[i];
-                    // When persistentDMX is true, null or -1 means "no change"
-                    // When persistentDMX is false, null or -1 means 0
-                    if (value != null && value != -1) {
-                        dmxBuffer[i] = value;
-                    } else if (!persistentDMX) {
-                        dmxBuffer[i] = 0;
-                    }
-                    // When persistentDMX is true and value is null/-1, keep existing value
+        // Array<Int> input: DMX values for channels [0..N]
+        finalLength = Std.int(Math.max(finalLength, arr.length));
+        for (i in 0...arr.length) {
+            if (i < 512) {
+                var value = arr[i];
+                // When persistentDMX is true, null or -1 means "no change"
+                // When persistentDMX is false, null or -1 means 0
+                if (value != null && value != -1) {
+                    dmxBuffer[i] = value;
+                } else if (!persistentDMX) {
+                    dmxBuffer[i] = 0;
                 }
+                // When persistentDMX is true and value is null/-1, keep existing value
             }
         }
-        else if (Std.isOfType(input, haxe.ds.IntMap)) {
+
+        return createDMXPacket(finalUniverse, finalLength);
+    }
+
+    /**
+     * Creates an ArtDMXPacket from an IntMap of per-channel updates.
+     * When persistentDMX is true (default), only specified channels are updated,
+     * others retain their previous values. When false, unspecified channels become 0.
+     *
+     * @param map Per-channel updates (channel index -> value)
+     * @param ?universe Optional universe override
+     * @param ?length Optional length override
+     * @return ArtDMXPacket structure ready for sending
+     */
+    public function makeDMXFromMap(map:haxe.ds.IntMap<Int>, ?universe:Int, ?length:Int):ArtDMXPacket {
+        var finalUniverse = universe != null ? universe : defaultUniverse;
+        var finalLength = length != null ? length : defaultLength;
+
+        // If persistentDMX is false, reset buffer to zero
+        if (!persistentDMX) {
+            for (i in 0...512) {
+                dmxBuffer[i] = 0;
+            }
+        }
+
         // IntMap<Int> input: Per-channel updates
-        var map:haxe.ds.IntMap<Int> = cast input;
         for (channel in map.keys()) {
             if (channel >= 0 && channel < 512) {
                 var value = map.get(channel);
@@ -260,28 +274,56 @@ class ArtNetSocket extends EventDispatcher {
                 }
             }
         }
+
+        return createDMXPacket(finalUniverse, finalLength);
     }
-        else if (Std.isOfType(input, ByteArray)) {
-            // ByteArray input: DMX values for channels [0..N]
-            var byteArray:ByteArray = cast input;
-            finalLength = Std.int(Math.max(finalLength, byteArray.length));
-            byteArray.position = 0;
-            for (i in 0...byteArray.length) {
-                if (i < 512) {
-                    dmxBuffer[i] = byteArray.readUnsignedByte();
-                }
+
+    /**
+     * Creates an ArtDMXPacket from a ByteArray containing DMX channel values.
+     * When persistentDMX is true (default), only channels present in the ByteArray
+     * are updated, others retain their previous values. When false, unspecified channels become 0.
+     *
+     * @param ba ByteArray containing DMX values for channels [0..N]
+     * @param ?universe Optional universe override
+     * @param ?length Optional length override
+     * @return ArtDMXPacket structure ready for sending
+     */
+    public function makeDMXFromByteArray(ba:ByteArray, ?universe:Int, ?length:Int):ArtDMXPacket {
+        var finalUniverse = universe != null ? universe : defaultUniverse;
+        var finalLength = length != null ? length : defaultLength;
+
+        // If persistentDMX is false, reset buffer to zero
+        if (!persistentDMX) {
+            for (i in 0...512) {
+                dmxBuffer[i] = 0;
             }
         }
-        else {
-            throw "Invalid argument for makeDMXPacket. Supported types: Array<Int>, Map<Int,Int>, ByteArray";
+
+        // ByteArray input: DMX values for channels [0..N]
+        finalLength = Std.int(Math.max(finalLength, ba.length));
+        ba.position = 0;
+        for (i in 0...ba.length) {
+            if (i < 512) {
+                dmxBuffer[i] = ba.readUnsignedByte();
+            }
         }
 
+        return createDMXPacket(finalUniverse, finalLength);
+    }
+
+    /**
+     * Internal helper method to create the final ArtDMXPacket from the DMX buffer.
+     * @param universe Universe number
+     * @param length Number of channels
+     * @return ArtDMXPacket structure
+     */
+    private function createDMXPacket(universe:Int, length:Int):ArtDMXPacket {
         // Clamp length to 512 channels
-        if (finalLength > 512) finalLength = 512;
+        if (length > 512) length = 512;
 
         // Create output ByteArray from buffer
         var packetData = new ByteArray();
-        for (i in 0...finalLength) {
+        for (i in 0...length) {
             packetData.writeByte(dmxBuffer[i]);
         }
         packetData.position = 0;
@@ -291,8 +333,8 @@ class ArtNetSocket extends EventDispatcher {
             protocolVersion: 14,
             sequence: 0,
             physical: 0,
-            universe: finalUniverse,
-            length: finalLength,
+            universe: universe,
+            length: length,
             data: packetData
         };
     }

@@ -53,7 +53,7 @@ socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(event) {
 socket.broadcastPoll();
 
 // Send DMX (channels 1,2,3 set to 255,128,64)
-var pkt = socket.makeDMXPacket([255, 128, 64]);
+var pkt = socket.makeDMXFromArray([255, 128, 64]);
 socket.broadcastDMX(pkt);
 
 // Send DMX to a specific node (by IP)
@@ -67,8 +67,14 @@ socket.close();
 
 ## ArtNetSocket DMX Packet Construction
 
-ArtNetSocket provides a simple way to create an ArtDMXPacket for sending DMX data.  
+ArtNetSocket provides three explicit methods to create ArtDMXPackets for sending DMX data with different input types.  
 **Supports both persistent and non-persistent buffer modes.**
+
+### Available Methods
+
+- `makeDMXFromArray(arr:Array<Int>, ?universe:Int, ?length:Int):ArtDMXPacket`
+- `makeDMXFromMap(map:haxe.ds.IntMap<Int>, ?universe:Int, ?length:Int):ArtDMXPacket`
+- `makeDMXFromByteArray(ba:ByteArray, ?universe:Int, ?length:Int):ArtDMXPacket`
 
 ### Persistent Mode (Default)
 
@@ -82,26 +88,26 @@ Persistent mode is enabled by default. The library **retains a DMX buffer behind
 var socket = new ArtNetSocket(); // persistentDMX defaults to true
 
 // Method 1: Array input - update specific channels, others retain previous values
-var pkt = socket.makeDMXPacket([255, null, 128, -1, 75]); // channels 1 and 3 unchanged
+var pkt = socket.makeDMXFromArray([255, null, 128, -1, 75]); // channels 1 and 3 unchanged
 
 // Method 2: IntMap input for sparse updates
 var channelMap = new haxe.ds.IntMap<Int>();
 channelMap.set(5, 100);   // Set channel 5 to 100
 channelMap.set(13, 255);  // Set channel 13 to 255
-var pkt = socket.makeDMXPacket(channelMap); // Other channels retain previous values
+var pkt = socket.makeDMXFromMap(channelMap); // Other channels retain previous values
 
 // Method 3: ByteArray input (overwrites channels 0..N)
 var ba = new ByteArray();
 ba.writeByte(50);
 ba.writeByte(75);
 ba.writeByte(100);
-var pkt = socket.makeDMXPacket(ba); // Channels 0-2 set, others retain values
+var pkt = socket.makeDMXFromByteArray(ba); // Channels 0-2 set, others retain values
 ```
 
 ### Non-Persistent Mode
 
 Disable persistent mode to reset the buffer before each packet:
-- Any unspecified, `null`, or `-1` channel value is assumed to be **0** each time you call `makeDMXPacket`.
+- Any unspecified, `null`, or `-1` channel value is assumed to be **0** each time you call the DMX methods.
 - You must provide all channel values you wish to set for every packet.
 
 ```haxe
@@ -109,13 +115,23 @@ Disable persistent mode to reset the buffer before each packet:
 socket.persistentDMX = false;
 
 // Array input - unspecified/null/-1 channels become 0
-var pkt = socket.makeDMXPacket([255, null, 128, -1]); // Results in [255, 0, 128, 0, 0, 0, ...]
+var pkt = socket.makeDMXFromArray([255, null, 128, -1]); // Results in [255, 0, 128, 0, 0, 0, ...]
 
 // Map and ByteArray inputs work the same, but other channels are 0
 var channelMap = new haxe.ds.IntMap<Int>();
 channelMap.set(10, 255);
-var pkt = socket.makeDMXPacket(channelMap); // Channel 10 = 255, all others = 0
+var pkt = socket.makeDMXFromMap(channelMap); // Channel 10 = 255, all others = 0
 ```
+
+### Migration from makeDMXPacket
+
+**Breaking Change**: The previous `makeDMXPacket(input:Dynamic, ...)` method has been replaced with three explicit methods for better type safety:
+
+- `makeDMXPacket([1,2,3])` → `makeDMXFromArray([1,2,3])`
+- `makeDMXPacket(myMap)` → `makeDMXFromMap(myMap)`  
+- `makeDMXPacket(myByteArray)` → `makeDMXFromByteArray(myByteArray)`
+
+All methods retain the same optional `universe` and `length` parameters and behavior.
 
 **Tip:**  
 Use persistent mode for efficient, incremental updates to DMX universes—especially useful for real-time and interactive applications.  
