@@ -1,5 +1,5 @@
 # ignore test builds
-/tests/bin
+tests/bin/
 
 # ignore logs, databases and temporary files
 *.log

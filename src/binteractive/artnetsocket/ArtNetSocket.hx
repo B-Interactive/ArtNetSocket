@@ -247,20 +247,20 @@ class ArtNetSocket extends EventDispatcher {
                 }
             }
         }
-        else if (Std.isOfType(input, Map)) {
-            // Map<Int,Int> input: Per-channel updates
-            var map:Map<Int,Int> = cast input;
-            for (channel in map.keys()) {
-                if (channel >= 0 && channel < 512) {
-                    var value = map.get(channel);
-                    if (value != null && value != -1) {
-                        dmxBuffer[channel] = value;
-                        // Update finalLength if needed to include this channel
-                        finalLength = Std.int(Math.max(finalLength, channel + 1));
-                    }
+        else if (Std.isOfType(input, haxe.ds.IntMap)) {
+        // IntMap<Int> input: Per-channel updates
+        var map:haxe.ds.IntMap<Int> = cast input;
+        for (channel in map.keys()) {
+            if (channel >= 0 && channel < 512) {
+                var value = map.get(channel);
+                if (value != null && value != -1) {
+                    dmxBuffer[channel] = value;
+                    // Update finalLength if needed to include this channel
+                    finalLength = Std.int(Math.max(finalLength, channel + 1));
                 }
             }
         }
+    }
         else if (Std.isOfType(input, ByteArray)) {
             // ByteArray input: DMX values for channels [0..N]
             var byteArray:ByteArray = cast input;
