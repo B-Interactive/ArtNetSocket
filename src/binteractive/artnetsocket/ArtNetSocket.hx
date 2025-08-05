@@ -212,7 +212,7 @@ class ArtNetSocket extends EventDispatcher {
      * @param ?length Optional length override
      * @return ArtDMXPacket structure ready for sending
      */
-    public function makeDMXFromArray(arr:Array<Int>, ?universe:Int, ?length:Int):ArtDMXPacket {
+    public function makeDMXFromArray(arr:Array<Null<Int>>, ?universe:Int, ?length:Int):ArtDMXPacket {
         var finalUniverse = universe != null ? universe : defaultUniverse;
         var finalLength = length != null ? length : defaultLength;
 
@@ -227,7 +227,7 @@ class ArtNetSocket extends EventDispatcher {
         finalLength = Std.int(Math.max(finalLength, arr.length));
         for (i in 0...arr.length) {
             if (i < 512) {
-                var value = arr[i];
+                var value:Null<Int> = arr[i];
                 // When persistentDMX is true, null or -1 means "no change"
                 // When persistentDMX is false, null or -1 means 0
                 if (value != null && value != -1) {
@@ -266,7 +266,7 @@ class ArtNetSocket extends EventDispatcher {
         // IntMap<Int> input: Per-channel updates
         for (channel in map.keys()) {
             if (channel >= 0 && channel < 512) {
-                var value = map.get(channel);
+                var value:Null<Int> = map.get(channel);
                 if (value != null && value != -1) {
                     dmxBuffer[channel] = value;
                     // Update finalLength if needed to include this channel
@@ -381,7 +381,7 @@ class ArtNetSocket extends EventDispatcher {
                 // Ensure required fields are set (fallback to sender if not present)
                 if (pollReply.ip == null || pollReply.ip == "") pollReply.ip = host;
                 if (pollReply.bindIp == null || pollReply.bindIp == "") pollReply.bindIp = host;
-                if (pollReply.port == null) pollReply.port = port;
+                if (pollReply.port == 0) pollReply.port = port;
 
                 dispatchEvent(new ArtPollReplyEvent(ARTPOLLREPLY, pollReply, host, port));
 
