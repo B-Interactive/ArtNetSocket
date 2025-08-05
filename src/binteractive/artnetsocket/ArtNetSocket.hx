@@ -98,7 +98,7 @@ class ArtNetSocket extends EventDispatcher {
 
     /**
      * Sends an ArtDMX packet to a specific IP address.
-     * @param pkt ArtDMXPacket structure (created via makeDMXPacket)
+     * @param pkt ArtDMXPacket structure (created via makeDMXFromArray, makeDMXFromMap, or makeDMXFromByteArray)
      * @param host Target IP address
      * @param port Target UDP port (default 6454)
      */
