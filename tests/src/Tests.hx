@@ -7,7 +7,7 @@ import openfl.utils.ByteArray;
 /**
  * Simple test to verify README.md examples compile correctly
  */
-class TestReadmeExamples {
+class Tests {
     
     public static function main() {
         trace("Testing ArtNetSocket README examples...");

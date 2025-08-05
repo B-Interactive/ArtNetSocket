@@ -1,6 +1,9 @@
 This is a Haxe based repository leveraging the OpenFL framework. The purpose is to provide Art-Net client (sending Art-Net packets containing DMX instructions), and Art-Net discovery functionality.
 
-## Code Standards
+## Key Features
+- Provides Art-Net client functionality (send Art-Net packets containing DMX instructions).
+- Provides Art-Net discovery, so Art-Net nodes can be discovered and detailed.
+- Provides support for persistent DMX buffer per ArtNetSocket (default enabled).
 
 ### Required Before Each Commit
 
@@ -10,10 +13,19 @@ This is a Haxe based repository leveraging the OpenFL framework. The purpose is 
 
 ## Repository Structure
 - `src/`: The beginning of the source tree.
+- `examples/`: Contains comprehensive examples of usage.
+- `tests/`: Contains tests to ensure successful builds.
+
+## Libraries and Frameworks
+- Primarily leverage OpenFL paradigms, based on OpenFL latest release version.
+- Reference the OpenFL API at https://api.openfl.org/ and codebase at https://github.com/openfl/openfl
+- Then, if no OpenFL solution exists, leverage Lime paradigms.
+- Reference the Lime API at https://lime.openfl.org/api/ and codebase at https://github.com/openfl/lime
+- Apply code optimisation based on the latest release version of Haxe.
+- Reference the Haxe API at https://api.haxe.org/ and codebase at https://github.com/HaxeFoundation/haxe
 
 ## Key Guidelines
-1. Prioritise OpenFL paradigms over native Haxe.
-2. Fallback to Haxe paradigms only where target support requires it.
-3. Consider memory safety and performance optimisations.
-4. Make source easily readable, providing useful code comments..
-5. Document public APIs and complex logic in README.md.
+1. Consider memory safety and performance optimisations.
+2. Make source easily readable, always providing useful code comments.
+3. Ensure README.md consistently reflects up-to-date features of the API.
+4. Ensure comprehensive examples under examples/ remain up-to-date.

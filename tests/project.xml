@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+
+	<meta title="Tests" package="" version="1.0.0" company="" />
+	<app main="Tests" file="Tests" path="bin" />
+
+	<source path="../src" />
+	<source path="src" />
+	<haxelib name="openfl" />
+
+</project>

@@ -1,0 +1,10 @@
+# ignore test builds
+/tests/bin
+
+# ignore logs, databases and temporary files
+*.log
+*.sql
+*.sqlite
+*.kate-swp
+*.zip
+.DS_Store

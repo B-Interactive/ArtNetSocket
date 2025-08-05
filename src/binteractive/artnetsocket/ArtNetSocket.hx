@@ -232,7 +232,7 @@ class ArtNetSocket extends EventDispatcher {
         if (Std.is(input, Array)) {
             // Array<Int> or Array<Null<Int>> input: DMX values for channels [0..N]
             var arr:Array<Dynamic> = cast input;
-            finalLength = Math.max(finalLength, arr.length);
+            finalLength = Std.int(Math.max(finalLength, arr.length));
             for (i in 0...arr.length) {
                 if (i < 512) {
                     var value = arr[i];
@@ -256,7 +256,7 @@ class ArtNetSocket extends EventDispatcher {
                     if (value != null && value != -1) {
                         dmxBuffer[channel] = value;
                         // Update finalLength if needed to include this channel
-                        finalLength = Math.max(finalLength, channel + 1);
+                        finalLength = Std.int(Math.max(finalLength, channel + 1));
                     }
                 }
             }
@@ -264,7 +264,7 @@ class ArtNetSocket extends EventDispatcher {
         else if (Std.is(input, ByteArray)) {
             // ByteArray input: DMX values for channels [0..N]
             var byteArray:ByteArray = cast input;
-            finalLength = Math.max(finalLength, byteArray.length);
+            finalLength = Std.int(Math.max(finalLength, byteArray.length));
             byteArray.position = 0;
             for (i in 0...byteArray.length) {
                 if (i < 512) {
