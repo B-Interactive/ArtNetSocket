@@ -220,16 +220,16 @@ class ArtNetSocket extends EventDispatcher {
     public function makeDMXPacket(input:Dynamic, ?universe:Int, ?length:Int):ArtDMXPacket {
         var finalUniverse = universe != null ? universe : defaultUniverse;
         var finalLength = length != null ? length : defaultLength;
-        
+
         // If persistentDMX is false, reset buffer to zero
         if (!persistentDMX) {
             for (i in 0...512) {
                 dmxBuffer[i] = 0;
             }
         }
-        
+
         // Process input based on type
-        if (Std.is(input, Array)) {
+        if (Std.isOfType(input, Array)) {
             // Array<Int> or Array<Null<Int>> input: DMX values for channels [0..N]
             var arr:Array<Dynamic> = cast input;
             finalLength = Std.int(Math.max(finalLength, arr.length));
@@ -247,7 +247,7 @@ class ArtNetSocket extends EventDispatcher {
                 }
             }
         }
-        else if (Std.is(input, Map)) {
+        else if (Std.isOfType(input, Map)) {
             // Map<Int,Int> input: Per-channel updates
             var map:Map<Int,Int> = cast input;
             for (channel in map.keys()) {
@@ -261,7 +261,7 @@ class ArtNetSocket extends EventDispatcher {
                 }
             }
         }
-        else if (Std.is(input, ByteArray)) {
+        else if (Std.isOfType(input, ByteArray)) {
             // ByteArray input: DMX values for channels [0..N]
             var byteArray:ByteArray = cast input;
             finalLength = Std.int(Math.max(finalLength, byteArray.length));
@@ -275,17 +275,17 @@ class ArtNetSocket extends EventDispatcher {
         else {
             throw "Invalid argument for makeDMXPacket. Supported types: Array<Int>, Map<Int,Int>, ByteArray";
         }
-        
+
         // Clamp length to 512 channels
         if (finalLength > 512) finalLength = 512;
-        
+
         // Create output ByteArray from buffer
         var packetData = new ByteArray();
         for (i in 0...finalLength) {
             packetData.writeByte(dmxBuffer[i]);
         }
         packetData.position = 0;
-        
+
         // Return ArtDMXPacket structure
         return {
             protocolVersion: 14,
