@@ -147,7 +147,7 @@ class DMXController {
 
         // Example 2: Map input for sparse channel updates
         // Perfect for controlling individual fixtures without affecting others
-        var channelMap = new Map<Int,Int>();
+        var channelMap = new haxe.ds.IntMap<Int>();
         channelMap.set(10, 200);  // Set channel 10 (dimmer) to 200
         channelMap.set(11, 150);  // Set channel 11 (red) to 150
         channelMap.set(12, 100);  // Set channel 12 (green) to 100

@@ -35,7 +35,7 @@ class Tests {
         trace("Array packet created successfully");
         
         // Map input 
-        var channelMap = new Map<Int,Int>();
+        var channelMap = new haxe.ds.IntMap<Int>();
         channelMap.set(10, 200);
         channelMap.set(11, 150);
         var pkt2 = socket.makeDMXPacket(channelMap);

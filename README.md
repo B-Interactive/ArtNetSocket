@@ -84,8 +84,8 @@ var socket = new ArtNetSocket(); // persistentDMX defaults to true
 // Method 1: Array input - update specific channels, others retain previous values
 var pkt = socket.makeDMXPacket([255, null, 128, -1, 75]); // channels 1 and 3 unchanged
 
-// Method 2: Map input for sparse updates
-var channelMap = new Map<Int,Int>();
+// Method 2: IntMap input for sparse updates
+var channelMap = new haxe.ds.IntMap<Int>();
 channelMap.set(5, 100);   // Set channel 5 to 100
 channelMap.set(13, 255);  // Set channel 13 to 255
 var pkt = socket.makeDMXPacket(channelMap); // Other channels retain previous values
@@ -112,7 +112,7 @@ socket.persistentDMX = false;
 var pkt = socket.makeDMXPacket([255, null, 128, -1]); // Results in [255, 0, 128, 0, 0, 0, ...]
 
 // Map and ByteArray inputs work the same, but other channels are 0
-var channelMap = new Map<Int,Int>();
+var channelMap = new haxe.ds.IntMap<Int>();
 channelMap.set(10, 255);
 var pkt = socket.makeDMXPacket(channelMap); // Channel 10 = 255, all others = 0
 ```
