@@ -28,29 +28,29 @@ class Tests {
             trace('Socket error: ${event.message}');
         });
         
-        // Test different makeDMXPacket input methods from README
+        // Test different makeDMXFromXXX input methods from README
         
         // Array input
-        var pkt1 = socket.makeDMXPacket([255, null, 128, null, 64]);
+        var pkt1 = socket.makeDMXFromArray([255, null, 128, null, 64]);
         trace("Array packet created successfully");
         
         // Map input 
         var channelMap = new haxe.ds.IntMap<Int>();
         channelMap.set(10, 200);
         channelMap.set(11, 150);
-        var pkt2 = socket.makeDMXPacket(channelMap);
+        var pkt2 = socket.makeDMXFromMap(channelMap);
         trace("Map packet created successfully");
         
         // ByteArray input
         var ba = new ByteArray();
         ba.writeByte(100);
         ba.writeByte(200);
-        var pkt3 = socket.makeDMXPacket(ba);
+        var pkt3 = socket.makeDMXFromByteArray(ba);
         trace("ByteArray packet created successfully");
         
         // Test persistent vs non-persistent modes
         socket.persistentDMX = false;
-        var pkt4 = socket.makeDMXPacket([100, null, 200]);
+        var pkt4 = socket.makeDMXFromArray([100, null, 200]);
         socket.persistentDMX = true;
         trace("Persistence mode test completed");
         

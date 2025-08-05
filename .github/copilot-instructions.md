@@ -25,7 +25,8 @@ This is a Haxe based repository leveraging the OpenFL framework. The purpose is 
 - Reference the Haxe API at https://api.haxe.org/ and codebase at https://github.com/HaxeFoundation/haxe
 
 ## Key Guidelines
-1. Consider memory safety and performance optimisations.
-2. Make source easily readable, always providing useful code comments.
-3. Ensure README.md consistently reflects up-to-date features of the API.
-4. Ensure comprehensive examples under examples/ remain up-to-date.
+- Consider memory safety and performance optimisations.
+- Simulate UDP broadcasts as UDP broadcast is not supported by OpenFL DatagramSocket.
+- Make source easily readable, always providing useful code comments.
+- Ensure README.md consistently reflects up-to-date features of the API.
+- Ensure comprehensive examples under examples/ remain up-to-date.
