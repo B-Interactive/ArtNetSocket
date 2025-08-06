@@ -15,12 +15,17 @@ import binteractive.artnetsocket.ArtNetNetworkUtil;
  *
  * Handles Art-Net UDP communication for DMX lighting control.
  * - Binds to a local UDP port for receiving/sending Art-Net packets.
- * - Supports sending ArtDMX packets, broadcasting DMX (simulated), and ArtPoll (discovery).
+ * - Supports sending ArtDMX packets, broadcasting DMX, and ArtPoll (discovery).
  * - Exposes event-based API for integration with OpenFL/Haxe projects.
  *
- * NOTE: Broadcast is simulated for maximum compatibility, sending packets
- * to each IP in the local subnet. This is because OpenFL's DatagramSocket
- * does not reliably support true UDP broadcast on all platforms.
+ * BROADCAST SUPPORT:
+ * This implementation automatically detects and utilizes the enableBroadcast property
+ * available in patched OpenFL versions for cpp and neko targets. When available,
+ * true UDP broadcast (255.255.255.255) is used for maximum efficiency and compatibility.
+ * 
+ * For backward compatibility with upstream OpenFL versions, broadcast is simulated
+ * by sending packets to each IP in the local subnet when enableBroadcast is not available.
+ * This ensures the library works across all OpenFL versions and target platforms.
  */
 class ArtNetSocket extends EventDispatcher {
     // Event type constants for listeners.
@@ -38,6 +43,7 @@ class ArtNetSocket extends EventDispatcher {
     public var persistentDMX:Bool;     // Whether to use persistent DMX buffering (default true)
     
     private var dmxBuffer:Array<Int>;  // Persistent DMX buffer for retaining channel values
+    private var _broadcastSupported:Null<Bool>; // Cached result of broadcast capability detection
 
     /**
      * Constructor: Initializes and binds the UDP socket.
@@ -97,6 +103,48 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
+     * Detects if the current DatagramSocket implementation supports the enableBroadcast property.
+     * This feature is available in patched OpenFL versions for cpp and neko targets.
+     * Results are cached for performance.
+     * 
+     * @return true if enableBroadcast property is available, false otherwise
+     */
+    private function supportsBroadcast():Bool {
+        // Cache the result to avoid repeated reflection calls
+        if (_broadcastSupported != null) {
+            return _broadcastSupported;
+        }
+        
+        // Use reflection to check if enableBroadcast property exists on the socket
+        if (socket != null) {
+            _broadcastSupported = Reflect.hasField(socket, "enableBroadcast");
+        } else {
+            _broadcastSupported = false;
+        }
+        
+        return _broadcastSupported;
+    }
+
+    /**
+     * Enables true UDP broadcast on the socket if the enableBroadcast property is available.
+     * This is a no-op if the property doesn't exist (maintains backward compatibility).
+     * 
+     * @return true if broadcast was successfully enabled, false if not supported
+     */
+    private function enableBroadcast():Bool {
+        if (socket != null && supportsBroadcast()) {
+            try {
+                Reflect.setProperty(socket, "enableBroadcast", true);
+                return true;
+            } catch (e:Dynamic) {
+                // If setting the property fails, fall back to simulation
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Sends an ArtDMX packet to a specific IP address.
      * @param pkt ArtDMXPacket structure (created via makeDMXFromArray, makeDMXFromMap, or makeDMXFromByteArray)
      * @param host Target IP address
@@ -113,17 +161,30 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Simulates broadcast of an ArtDMX packet by sending to each host in the local subnet.
-     * This works around unreliable platform broadcast support.
+     * Broadcasts an ArtDMX packet to the network.
+     * Uses true UDP broadcast (255.255.255.255) if enableBroadcast property is available,
+     * otherwise falls back to simulated broadcast by sending to each host in the local subnet.
+     * 
      * @param pkt ArtDMXPacket structure
      * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
+     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for subnet simulation fallback
      */
     public function broadcastDMX(pkt:ArtDMXPacket, port:Int = 6454, ?subnetPrefix:String):Void {
         if (socket == null) return;
         var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
 
-        // Determine subnet prefix (default: using first local IPv4 address)
+        // Try true broadcast first if supported
+        if (enableBroadcast()) {
+            try {
+                socket.send(bytes, "255.255.255.255", port);
+                return; // Success with true broadcast
+            } catch (e:Dynamic) {
+                // If true broadcast fails, fall back to subnet simulation
+            }
+        }
+
+        // Fallback: Simulate broadcast by sending to each host in the local subnet
+        // This maintains compatibility with non-patched OpenFL versions
         var subnet = subnetPrefix;
         if (subnet == null) {
             var ips = ArtNetNetworkUtil.getLocalIPv4s();
@@ -151,16 +212,29 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Simulates broadcast of an ArtPoll packet by sending to each host in the local subnet.
-     * This works around unreliable platform broadcast support.
+     * Broadcasts an ArtPoll packet to discover Art-Net nodes on the network.
+     * Uses true UDP broadcast (255.255.255.255) if enableBroadcast property is available,
+     * otherwise falls back to simulated broadcast by sending to each host in the local subnet.
+     * 
      * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
+     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for subnet simulation fallback
      */
     public function broadcastPoll(port:Int = 6454, ?subnetPrefix:String):Void {
         if (socket == null) return;
         var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
 
-        // Determine subnet prefix (default: using first local IPv4 address)
+        // Try true broadcast first if supported
+        if (enableBroadcast()) {
+            try {
+                socket.send(bytes, "255.255.255.255", port);
+                return; // Success with true broadcast
+            } catch (e:Dynamic) {
+                // If true broadcast fails, fall back to subnet simulation
+            }
+        }
+
+        // Fallback: Simulate broadcast by sending to each host in the local subnet
+        // This maintains compatibility with non-patched OpenFL versions
         var subnet = subnetPrefix;
         if (subnet == null) {
             var ips = ArtNetNetworkUtil.getLocalIPv4s();
@@ -187,14 +261,20 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Sends an ArtPoll packet (legacy, single address: broadcast)
-     * Provided for API compatibility, but may not work on all platforms.
-     * Prefer broadcastPoll for reliability.
+     * Sends an ArtPoll packet using true UDP broadcast.
+     * This method attempts to use true broadcast (255.255.255.255) and will enable
+     * the enableBroadcast property if available. Falls back gracefully if not supported.
+     * For maximum compatibility, prefer broadcastPoll() which includes subnet simulation fallback.
+     * 
      * @param port Target UDP port (default 6454)
      */
     public function sendPoll(port:Int = 6454):Void {
         if (socket == null) return;
         var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
+        
+        // Enable broadcast capability if available
+        enableBroadcast();
+        
         try {
             socket.send(bytes, "255.255.255.255", port);
         } catch (e:Dynamic) {
