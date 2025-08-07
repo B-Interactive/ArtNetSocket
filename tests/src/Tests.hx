@@ -13,7 +13,7 @@ class Tests {
         trace("Testing ArtNetSocket README examples...");
         
         // Test basic socket creation
-        var socket = new ArtNetSocket("0.0.0.0", 6454, 0, 512);
+        var socket = new ArtNetSocket("0.0.0.0", ArtNetSocket.DEFAULT_PORT, 0, 512);
         
         // Test event handler setup (from README example)
         socket.addEventListener(ArtNetSocket.ARTDMX, function(event:ArtDMXEvent) {

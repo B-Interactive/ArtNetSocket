@@ -14,6 +14,7 @@ Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR
 - Event-driven protocol parsing
 - Typed packets and helpers
 - Persistent DMX buffer mode for efficient sparse channel updates
+- Exposed DEFAULT_PORT constant (6454) for Art-Net standard port
 
 ## Installation
 
@@ -28,7 +29,7 @@ import binteractive.artnetsocket.ArtNetSocket;
 import binteractive.artnetsocket.ArtNetSocketEvents;
 
 // Create socket for sending/receiving Art-Net DMX (universe 0, 512 channels)
-var socket = new ArtNetSocket("0.0.0.0", 6454, 0, 512);
+var socket = new ArtNetSocket("0.0.0.0", ArtNetSocket.DEFAULT_PORT, 0, 512);
 
 // Listen for incoming DMX packets
 socket.addEventListener(ArtNetSocket.ARTDMX, function(event) {
@@ -198,6 +199,11 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 - Flash/AIR targets use OpenFL’s event-driven DatagramSocket.
 - JavaScript/HTML5 targets are not supported due to browser security restrictions on UDP.
 - Java, Android, and iOS support is untested in production; please report your results or PRs!
+
+**ArtPoll Discovery Support:**
+- `sendPoll()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
+- `broadcastPoll()`: Cross-platform subnet broadcasting - **supported on all targets**
+- For reliable node discovery across all platforms, use `broadcastPoll()` instead of `sendPoll()`
 
 ---
 

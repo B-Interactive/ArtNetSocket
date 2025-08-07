@@ -7,9 +7,9 @@ class DMXController {
     private var connectedNodes:Map<String, ArtPollReplyPacket> = new Map();
 
     public function new() {
-        // Create socket bound to all interfaces, standard Art-Net port 6454
+        // Create socket bound to all interfaces, standard Art-Net port
         // Default universe 0, 512 channels, with persistent DMX buffering enabled
-        socket = new ArtNetSocket("0.0.0.0", 6454, 0, 512);
+        socket = new ArtNetSocket("0.0.0.0", ArtNetSocket.DEFAULT_PORT, 0, 512);
 
         // Set up event listeners to handle incoming Art-Net traffic
         setupEventHandlers();
