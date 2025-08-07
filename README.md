@@ -55,7 +55,13 @@ socket.sendPoll();
 
 // Send DMX (channels 1,2,3 set to 255,128,64)
 var pkt = socket.makeDMXFromArray([255, 128, 64]);
+// Broadcast DMX (cpp/neko targets only)
+#if (cpp || neko)
 socket.broadcastDMX(pkt);
+#else
+// Use sendDMX for specific nodes on other targets
+socket.sendDMX(pkt, "192.168.1.100");
+#end
 
 // Send DMX to a specific node (by IP)
 socket.sendDMX(pkt, "192.168.1.100");
@@ -202,6 +208,9 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 
 **ArtPoll Discovery Support:**
 - `sendPoll()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
+
+**DMX Broadcasting Support:**
+- `broadcastDMX()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
 
 ---
 

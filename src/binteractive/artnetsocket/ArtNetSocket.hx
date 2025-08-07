@@ -15,12 +15,11 @@ import binteractive.artnetsocket.ArtNetNetworkUtil;
  *
  * Handles Art-Net UDP communication for DMX lighting control.
  * - Binds to a local UDP port for receiving/sending Art-Net packets.
- * - Supports sending ArtDMX packets, broadcasting DMX (simulated), and ArtPoll (discovery on cpp/neko only).
+ * - Supports sending ArtDMX packets, broadcasting DMX (on cpp/neko only), and ArtPoll (discovery on cpp/neko only).
  * - Exposes event-based API for integration with OpenFL/Haxe projects.
  *
- * NOTE: DMX broadcast is simulated for maximum compatibility, sending packets
- * to each IP in the local subnet. This is because OpenFL's DatagramSocket
- * does not reliably support true UDP broadcast on all platforms.
+ * NOTE: DMX and ArtPoll broadcasting use native UDP broadcast on cpp/neko targets.
+ * On other targets, broadcast operations will throw an error as they are not supported.
  */
 class ArtNetSocket extends EventDispatcher {
     // Event type constants for listeners.
@@ -116,41 +115,29 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Simulates broadcast of an ArtDMX packet by sending to each host in the local subnet.
-     * This works around unreliable platform broadcast support.
+     * Broadcasts an ArtDMX packet via UDP broadcast to 255.255.255.255.
+     * For cpp and neko targets, uses sys.net.UdpSocket directly for true UDP broadcast.
+     * For all other targets, throws an error as UDP broadcast is not supported.
      * @param pkt ArtDMXPacket structure
      * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
+     * @param subnetPrefix Ignored - maintained for backward compatibility
      */
     public function broadcastDMX(pkt:ArtDMXPacket, port:Int = DEFAULT_PORT, ?subnetPrefix:String):Void {
-        if (socket == null) return;
-        var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
-
-        // Determine subnet prefix (default: using first local IPv4 address)
-        var subnet = subnetPrefix;
-        if (subnet == null) {
-            var ips = ArtNetNetworkUtil.getLocalIPv4s();
-            if (ips.length > 0) {
-                var ipParts = ips[0].split(".");
-                if (ipParts.length == 4) {
-                    subnet = ipParts[0] + "." + ipParts[1] + "." + ipParts[2] + ".";
-                }
+        #if (cpp || neko)
+            var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
+            var udpSocket = new sys.net.UdpSocket();
+            try {
+                udpSocket.setBroadcast(true);
+                udpSocket.sendTo(bytes.getData(), 0, bytes.length, 
+                    new sys.net.Host("255.255.255.255"), port);
+                udpSocket.close();
+            } catch (e:Dynamic) {
+                if (udpSocket != null) udpSocket.close();
+                dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to broadcast DMX packet: " + Std.string(e)));
             }
-        }
-        if (subnet == null) subnet = "192.168.1.";
-
-        // Send DMX to each IP in the subnet (1-254)
-        for (i in 1...255) {
-            var target = subnet + i;
-            // Optionally skip sending to own IP
-            if (target != this.address) {
-                try {
-                    socket.send(bytes, target, port);
-                } catch (e:Dynamic) {
-                    // Ignore errors for unreachable hosts
-                }
-            }
-        }
+        #else
+            dispatchEvent(new ArtNetErrorEvent(ERROR, "DMX broadcast (broadcastDMX) is only supported on cpp and neko targets."));
+        #end
     }
 
 
