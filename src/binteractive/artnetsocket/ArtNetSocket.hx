@@ -28,6 +28,9 @@ class ArtNetSocket extends EventDispatcher {
     public static inline var ARTPOLLREPLY:String = "artpollreply";
     public static inline var DATA:String = "data";
     public static inline var ERROR:String = "error";
+    
+    // Default Art-Net UDP port
+    public static inline var DEFAULT_PORT:Int = 6454;
 
     private var socket:DatagramSocket; // UDP socket for Art-Net communication
     private var port:Int;              // UDP port to bind
@@ -49,7 +52,7 @@ class ArtNetSocket extends EventDispatcher {
     public function new(?address:String, ?port:Int, ?defaultUniverse:Int, ?defaultLength:Int) {
         super();
         this.address = address != null ? address : "0.0.0.0";
-        this.port = port != null ? port : 6454;
+        this.port = port != null ? port : DEFAULT_PORT;
         this.defaultUniverse = defaultUniverse != null ? defaultUniverse : 0;
         this.defaultLength = defaultLength != null ? defaultLength : 512;
         this.persistentDMX = true; // Default to persistent DMX buffering
@@ -102,7 +105,7 @@ class ArtNetSocket extends EventDispatcher {
      * @param host Target IP address
      * @param port Target UDP port (default 6454)
      */
-    public function sendDMX(pkt:ArtDMXPacket, host:String, port:Int = 6454):Void {
+    public function sendDMX(pkt:ArtDMXPacket, host:String, port:Int = DEFAULT_PORT):Void {
         if (socket == null) return;
         var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
         try {
@@ -119,7 +122,7 @@ class ArtNetSocket extends EventDispatcher {
      * @param port Target UDP port (default 6454)
      * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
      */
-    public function broadcastDMX(pkt:ArtDMXPacket, port:Int = 6454, ?subnetPrefix:String):Void {
+    public function broadcastDMX(pkt:ArtDMXPacket, port:Int = DEFAULT_PORT, ?subnetPrefix:String):Void {
         if (socket == null) return;
         var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
 
@@ -156,7 +159,7 @@ class ArtNetSocket extends EventDispatcher {
      * @param port Target UDP port (default 6454)
      * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
      */
-    public function broadcastPoll(port:Int = 6454, ?subnetPrefix:String):Void {
+    public function broadcastPoll(port:Int = DEFAULT_PORT, ?subnetPrefix:String):Void {
         if (socket == null) return;
         var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
 
@@ -187,19 +190,28 @@ class ArtNetSocket extends EventDispatcher {
     }
 
     /**
-     * Sends an ArtPoll packet (legacy, single address: broadcast)
-     * Provided for API compatibility, but may not work on all platforms.
-     * Prefer broadcastPoll for reliability.
+     * Sends an ArtPoll packet via UDP broadcast to 255.255.255.255.
+     * For cpp and neko targets, uses sys.net.UdpSocket directly for true UDP broadcast.
+     * For all other targets, throws an error as UDP broadcast is not supported.
+     * For reliable cross-platform discovery, use broadcastPoll() instead.
      * @param port Target UDP port (default 6454)
      */
-    public function sendPoll(port:Int = 6454):Void {
-        if (socket == null) return;
-        var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
-        try {
-            socket.send(bytes, "255.255.255.255", port);
-        } catch (e:Dynamic) {
-            dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send ArtPoll packet: " + Std.string(e)));
-        }
+    public function sendPoll(port:Int = DEFAULT_PORT):Void {
+        #if (cpp || neko)
+            var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
+            var udpSocket = new sys.net.UdpSocket();
+            try {
+                udpSocket.setBroadcast(true);
+                udpSocket.sendTo(bytes.getData(), 0, bytes.length, 
+                    new sys.net.Host("255.255.255.255"), port);
+                udpSocket.close();
+            } catch (e:Dynamic) {
+                if (udpSocket != null) udpSocket.close();
+                dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send ArtPoll broadcast: " + Std.string(e)));
+            }
+        #else
+            dispatchEvent(new ArtNetErrorEvent(ERROR, "ArtPoll broadcast (sendPoll) is only supported on cpp and neko targets. Use broadcastPoll() for cross-platform discovery."));
+        #end
     }
 
     /**
