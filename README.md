@@ -50,8 +50,8 @@ socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(event) {
     // You may want to store node info, send DMX, etc.
 });
 
-// Discover Art-Net nodes on the local network
-socket.broadcastPoll();
+// Discover Art-Net nodes on the local network (cpp/neko targets only)
+socket.sendPoll();
 
 // Send DMX (channels 1,2,3 set to 255,128,64)
 var pkt = socket.makeDMXFromArray([255, 128, 64]);
@@ -202,8 +202,6 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 
 **ArtPoll Discovery Support:**
 - `sendPoll()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
-- `broadcastPoll()`: Cross-platform subnet broadcasting - **supported on all targets**
-- For reliable node discovery across all platforms, use `broadcastPoll()` instead of `sendPoll()`
 
 ---
 

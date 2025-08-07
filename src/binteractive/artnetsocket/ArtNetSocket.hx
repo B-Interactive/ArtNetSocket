@@ -15,10 +15,10 @@ import binteractive.artnetsocket.ArtNetNetworkUtil;
  *
  * Handles Art-Net UDP communication for DMX lighting control.
  * - Binds to a local UDP port for receiving/sending Art-Net packets.
- * - Supports sending ArtDMX packets, broadcasting DMX (simulated), and ArtPoll (discovery).
+ * - Supports sending ArtDMX packets, broadcasting DMX (simulated), and ArtPoll (discovery on cpp/neko only).
  * - Exposes event-based API for integration with OpenFL/Haxe projects.
  *
- * NOTE: Broadcast is simulated for maximum compatibility, sending packets
+ * NOTE: DMX broadcast is simulated for maximum compatibility, sending packets
  * to each IP in the local subnet. This is because OpenFL's DatagramSocket
  * does not reliably support true UDP broadcast on all platforms.
  */
@@ -153,47 +153,12 @@ class ArtNetSocket extends EventDispatcher {
         }
     }
 
-    /**
-     * Simulates broadcast of an ArtPoll packet by sending to each host in the local subnet.
-     * This works around unreliable platform broadcast support.
-     * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
-     */
-    public function broadcastPoll(port:Int = DEFAULT_PORT, ?subnetPrefix:String):Void {
-        if (socket == null) return;
-        var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
 
-        // Determine subnet prefix (default: using first local IPv4 address)
-        var subnet = subnetPrefix;
-        if (subnet == null) {
-            var ips = ArtNetNetworkUtil.getLocalIPv4s();
-            if (ips.length > 0) {
-                var ipParts = ips[0].split(".");
-                if (ipParts.length == 4) {
-                    subnet = ipParts[0] + "." + ipParts[1] + "." + ipParts[2] + ".";
-                }
-            }
-        }
-        if (subnet == null) subnet = "192.168.1.";
-
-        // Send ArtPoll to each IP in the subnet (1-254)
-        for (i in 1...255) {
-            var target = subnet + i;
-            if (target != this.address) {
-                try {
-                    socket.send(bytes, target, port);
-                } catch (e:Dynamic) {
-                    // Ignore errors for unreachable hosts
-                }
-            }
-        }
-    }
 
     /**
      * Sends an ArtPoll packet via UDP broadcast to 255.255.255.255.
      * For cpp and neko targets, uses sys.net.UdpSocket directly for true UDP broadcast.
      * For all other targets, throws an error as UDP broadcast is not supported.
-     * For reliable cross-platform discovery, use broadcastPoll() instead.
      * @param port Target UDP port (default 6454)
      */
     public function sendPoll(port:Int = DEFAULT_PORT):Void {
@@ -210,7 +175,7 @@ class ArtNetSocket extends EventDispatcher {
                 dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send ArtPoll broadcast: " + Std.string(e)));
             }
         #else
-            dispatchEvent(new ArtNetErrorEvent(ERROR, "ArtPoll broadcast (sendPoll) is only supported on cpp and neko targets. Use broadcastPoll() for cross-platform discovery."));
+            dispatchEvent(new ArtNetErrorEvent(ERROR, "ArtPoll broadcast (sendPoll) is only supported on cpp and neko targets."));
         #end
     }
 

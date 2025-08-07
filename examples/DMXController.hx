@@ -122,17 +122,17 @@ class DMXController {
     }
 
     /**
-     * Discover Art-Net nodes on the network by broadcasting ArtPoll
+     * Discover Art-Net nodes on the network by sending ArtPoll (cpp/neko only)
      */
     private function discoverNodes():Void {
-        trace("Broadcasting ArtPoll to discover nodes...");
-
-        // Use broadcastPoll for reliable cross-platform discovery
-        // This sends to all IPs in the local subnet (more reliable than true broadcast)
-        socket.broadcastPoll();
-
-        // Alternative: Use legacy single-address broadcast (may not work on all platforms)
-        // socket.sendPoll();
+        #if (cpp || neko)
+            trace("Broadcasting ArtPoll to discover nodes...");
+            
+            // Use sendPoll for true UDP broadcast (cpp/neko targets only)
+            socket.sendPoll();
+        #else
+            trace("ArtPoll discovery not supported on this target - use cpp or neko");
+        #end
     }
 
     /**
