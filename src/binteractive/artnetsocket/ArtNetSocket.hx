@@ -120,9 +120,8 @@ class ArtNetSocket extends EventDispatcher {
      * For all other targets, throws an error as UDP broadcast is not supported.
      * @param pkt ArtDMXPacket structure
      * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Ignored - maintained for backward compatibility
      */
-    public function broadcastDMX(pkt:ArtDMXPacket, port:Int = DEFAULT_PORT, ?subnetPrefix:String):Void {
+    public function broadcastDMX(pkt:ArtDMXPacket, port:Int = DEFAULT_PORT):Void {
         #if (cpp || neko)
             var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
             var udpSocket = new sys.net.UdpSocket();
