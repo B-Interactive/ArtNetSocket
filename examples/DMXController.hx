@@ -7,9 +7,9 @@ class DMXController {
     private var connectedNodes:Map<String, ArtPollReplyPacket> = new Map();
 
     public function new() {
-        // Create socket bound to all interfaces, standard Art-Net port 6454
+        // Create socket bound to all interfaces, standard Art-Net port
         // Default universe 0, 512 channels, with persistent DMX buffering enabled
-        socket = new ArtNetSocket("0.0.0.0", 6454, 0, 512);
+        socket = new ArtNetSocket("0.0.0.0", ArtNetSocket.DEFAULT_PORT, 0, 512);
 
         // Set up event listeners to handle incoming Art-Net traffic
         setupEventHandlers();
@@ -64,7 +64,12 @@ class DMXController {
         if (dmxPacket.universe == 0) {
             // Retransmit to universe 1 with modified data
             var forwardPacket = socket.makeDMXFromArray(channelData, 1, dmxPacket.length);
+            #if (cpp || neko)
             socket.broadcastDMX(forwardPacket);
+            #else
+            // Use sendDMX to specific node on other targets
+            socket.sendDMX(forwardPacket, "192.168.1.100");
+            #end
         }
     }
 
@@ -122,23 +127,24 @@ class DMXController {
     }
 
     /**
-     * Discover Art-Net nodes on the network by broadcasting ArtPoll
+     * Discover Art-Net nodes on the network by sending ArtPoll (cpp/neko only)
      */
     private function discoverNodes():Void {
-        trace("Broadcasting ArtPoll to discover nodes...");
-
-        // Use broadcastPoll for reliable cross-platform discovery
-        // This sends to all IPs in the local subnet (more reliable than true broadcast)
-        socket.broadcastPoll();
-
-        // Alternative: Use legacy single-address broadcast (may not work on all platforms)
-        // socket.sendPoll();
+        #if (cpp || neko)
+            trace("Broadcasting ArtPoll to discover nodes...");
+            
+            // Use discoverNodes for true UDP broadcast (cpp/neko targets only)
+            socket.discoverNodes();
+        #else
+            trace("ArtPoll discovery not supported on this target - use cpp or neko");
+        #end
     }
 
     /**
      * Demonstrate various DMX output patterns using different input methods
      */
     private function startDMXOutput():Void {
+        #if (cpp || neko)
         // Example 1: Array input with persistent buffering (default behavior)
         // Set channels 1, 3, and 5 to specific values, leave others unchanged
         var pkt1 = socket.makeDMXFromArray([255, null, 128, null, 64]);
@@ -155,6 +161,13 @@ class DMXController {
         var pkt2 = socket.makeDMXFromMap(channelMap);
         socket.broadcastDMX(pkt2);
         trace("Sent DMX with map input - updated RGB fixture channels 10-13");
+        #else
+        trace("DMX broadcasting not supported on this target - use cpp or neko");
+        // Example with sendDMX to specific node instead
+        var pkt1 = socket.makeDMXFromArray([255, null, 128, null, 64]);
+        socket.sendDMX(pkt1, "192.168.1.100");
+        trace("Sent DMX with array input to specific node");
+        #end
 
         // Example 3: ByteArray input for maximum efficiency
         // Useful when receiving DMX data from other sources or file playback
@@ -166,6 +179,7 @@ class DMXController {
         socket.sendDMX(pkt3, "192.168.1.100");  // Send to specific node
         trace("Sent DMX with ByteArray input - 16 random values to specific node");
 
+        #if (cpp || neko)
         // Example 4: Override universe and length per packet
         var pkt4 = socket.makeDMXFromArray([255, 128, 64], 2, 3);  // Universe 2, 3 channels
         socket.broadcastDMX(pkt4);
@@ -179,6 +193,7 @@ class DMXController {
 
         // Restore persistent mode
         socket.persistentDMX = true;
+        #end
     }
 
     /**
