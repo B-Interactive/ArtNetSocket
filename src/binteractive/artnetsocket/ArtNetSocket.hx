@@ -9,6 +9,9 @@ import binteractive.artnetsocket.ArtNetSocketEvents;
 import binteractive.artnetsocket.ArtNetTypes;
 import binteractive.artnetsocket.ArtNetProtocolUtil;
 import binteractive.artnetsocket.ArtNetNetworkUtil;
+import sys.net.Address;
+import sys.net.Host;
+import sys.net.UdpSocket;
 
 /**
  * ArtNetSocket
@@ -131,10 +134,16 @@ class ArtNetSocket extends EventDispatcher {
         #if (cpp || neko)
             var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
             var udpSocket = new sys.net.UdpSocket();
+            
+            // Set up the destination broadcast address
+			var broadcastAddress = new Address();
+			broadcastAddress.host = new Host("255.255.255.255").ip;
+			broadcastAddress.port = port;
+
             try {
                 udpSocket.setBroadcast(true);
                 udpSocket.sendTo(cast bytes, 0, bytes.length, 
-                    new sys.net.Host("255.255.255.255"), targetPort);
+                    broadcastAddress, targetPort);
                 udpSocket.close();
             } catch (e:Dynamic) {
                 if (udpSocket != null) udpSocket.close();
@@ -158,10 +167,16 @@ class ArtNetSocket extends EventDispatcher {
         #if (cpp || neko)
             var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
             var udpSocket = new sys.net.UdpSocket();
+
+            // Set up the destination broadcast address
+			var broadcastAddress = new Address();
+			broadcastAddress.host = new Host("255.255.255.255").ip;
+			broadcastAddress.port = port;
+
             try {
                 udpSocket.setBroadcast(true);
                 udpSocket.sendTo(cast bytes, 0, bytes.length, 
-                    new sys.net.Host("255.255.255.255"), targetPort);
+                    broadcastAddress, targetPort);
                 udpSocket.close();
             } catch (e:Dynamic) {
                 if (udpSocket != null) udpSocket.close();
