@@ -133,7 +133,7 @@ class ArtNetSocket extends EventDispatcher {
             var udpSocket = new sys.net.UdpSocket();
             try {
                 udpSocket.setBroadcast(true);
-                udpSocket.sendTo(bytes.getData(), 0, bytes.length, 
+                udpSocket.sendTo(cast bytes, 0, bytes.length, 
                     new sys.net.Host("255.255.255.255"), targetPort);
                 udpSocket.close();
             } catch (e:Dynamic) {
@@ -160,7 +160,7 @@ class ArtNetSocket extends EventDispatcher {
             var udpSocket = new sys.net.UdpSocket();
             try {
                 udpSocket.setBroadcast(true);
-                udpSocket.sendTo(bytes.getData(), 0, bytes.length, 
+                udpSocket.sendTo(cast bytes, 0, bytes.length, 
                     new sys.net.Host("255.255.255.255"), targetPort);
                 udpSocket.close();
             } catch (e:Dynamic) {
