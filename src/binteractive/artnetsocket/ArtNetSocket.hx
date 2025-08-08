@@ -142,8 +142,7 @@ class ArtNetSocket extends EventDispatcher {
 
             try {
                 udpSocket.setBroadcast(true);
-                udpSocket.sendTo(cast bytes, 0, bytes.length, 
-                    broadcastAddress, targetPort);
+                udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);
                 udpSocket.close();
             } catch (e:Dynamic) {
                 if (udpSocket != null) udpSocket.close();
@@ -175,8 +174,7 @@ class ArtNetSocket extends EventDispatcher {
 
             try {
                 udpSocket.setBroadcast(true);
-                udpSocket.sendTo(cast bytes, 0, bytes.length, 
-                    broadcastAddress, targetPort);
+                udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);
                 udpSocket.close();
             } catch (e:Dynamic) {
                 if (udpSocket != null) udpSocket.close();
