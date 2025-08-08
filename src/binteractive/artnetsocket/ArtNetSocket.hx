@@ -36,15 +36,17 @@ class ArtNetSocket extends EventDispatcher {
 
     private var socket:DatagramSocket; // UDP socket for Art-Net communication
     private var _port:Int;             // UDP port to bind
-    private var address:String;        // Local address to bind
+    private var _address:String;        // Local address to bind
 
     public var defaultUniverse:Int;    // Default Art-Net universe for DMX packets
     public var defaultLength:Int;      // Default DMX packet length
     public var persistentDMX:Bool;     // Whether to use persistent DMX buffering (default true)
     
-    // Public getter for port
+    // Public getters for port and address
     public var port(get, never):Int;
     private function get_port():Int { return _port; }
+    public var address(get, never):String;
+    private function get_address():String { return _address; }
     
     private var dmxBuffer:Array<Int>;  // Persistent DMX buffer for retaining channel values
 
@@ -57,7 +59,7 @@ class ArtNetSocket extends EventDispatcher {
      */
     public function new(?address:String, ?port:Int, ?defaultUniverse:Int, ?defaultLength:Int) {
         super();
-        this.address = address != null ? address : "0.0.0.0";
+        this._address = address != null ? address : "0.0.0.0";
         this._port = port != null ? port : DEFAULT_PORT;
         this.defaultUniverse = defaultUniverse != null ? defaultUniverse : 0;
         this.defaultLength = defaultLength != null ? defaultLength : 512;
@@ -81,7 +83,7 @@ class ArtNetSocket extends EventDispatcher {
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 
         try {
-            socket.bind(this._port, this.address);
+            socket.bind(this._port, this._address);
             socket.receive();
         } catch (e:Dynamic) {
             dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to bind DatagramSocket: " + Std.string(e)));
@@ -138,10 +140,11 @@ class ArtNetSocket extends EventDispatcher {
             // Set up the destination broadcast address
 			var broadcastAddress = new Address();
 			broadcastAddress.host = new Host("255.255.255.255").ip;
-			broadcastAddress.port = port;
+			broadcastAddress.port = targetPort;
 
-            try {
+            try {                
                 udpSocket.setBroadcast(true);
+                udpSocket.bind(new Host(this._address), 0);                
                 udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);
                 udpSocket.close();
             } catch (e:Dynamic) {
@@ -170,11 +173,12 @@ class ArtNetSocket extends EventDispatcher {
             // Set up the destination broadcast address
 			var broadcastAddress = new Address();
 			broadcastAddress.host = new Host("255.255.255.255").ip;
-			broadcastAddress.port = port;
+			broadcastAddress.port = targetPort;
 
             try {
                 udpSocket.setBroadcast(true);
-                udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);
+                udpSocket.bind(new Host(this._address), 0);                
+                udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);                
                 udpSocket.close();
             } catch (e:Dynamic) {
                 if (udpSocket != null) udpSocket.close();
