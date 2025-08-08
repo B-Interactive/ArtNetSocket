@@ -133,8 +133,8 @@ class DMXController {
         #if (cpp || neko)
             trace("Broadcasting ArtPoll to discover nodes...");
             
-            // Use sendPoll for true UDP broadcast (cpp/neko targets only)
-            socket.sendPoll();
+            // Use discoverNodes for true UDP broadcast (cpp/neko targets only)
+            socket.discoverNodes();
         #else
             trace("ArtPoll discovery not supported on this target - use cpp or neko");
         #end
