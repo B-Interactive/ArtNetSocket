@@ -148,37 +148,6 @@ Use `null` or `-1` to indicate "no change" to a channel when updating with array
 
 ---
 
-## Configuration: `artnetsocket.config.json`
-
-ArtNetSocket can read its network configuration from an optional JSON file, typically named `artnetsocket.config.json`.  
-This file allows you to specify network settings such as IP address, UDP port, and subnet to override auto-detection.
-
-**Example `artnetsocket.config.json`:**
-```json
-{
-  "address": "192.168.1.10",
-  "port": 6454,
-  "subnet": "192.168.1."
-}
-```
-
-**Usage:**
-- Pass the config file path to the constructor:  
-  ```haxe
-  var socket = new ArtNetSocket("artnetsocket.config.json");
-  ```
-- If omitted, the default path `"artnetsocket.config.json"` is used.
-- If no file is found, ArtNetSocket auto-detects the local interface and subnet.
-
-**Config Fields:**
-- `address`: (string) The local network interface to bind. If unset, auto-detected.
-- `port`: (int) UDP port to bind. Default is 6454.
-- `subnet`: (string) Subnet prefix for broadcast/discovery. Example: `"192.168.1."`.
-
-You can customize your network environment by editing the config file, or rely on automatic detection for simple cases.
-
----
-
 ## OpenFL Target Compatibility
 
 This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports the following targets:
