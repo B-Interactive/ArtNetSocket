@@ -162,9 +162,13 @@ class ArtNetSocket extends EventDispatcher {
      * Discovers Art-Net nodes by sending an ArtPoll packet via UDP broadcast to 255.255.255.255.
      * For cpp and neko targets, uses sys.net.UdpSocket directly for true UDP broadcast.
      * For all other targets, throws an error as UDP broadcast is not supported.
+     * 
+     * NOTE: This method is private as receiving UDP broadcast responses is not 
+     * supported with Haxe's sys.net.UdpSocket, making ArtPoll discovery non-functional.
+     * 
      * @param port Target UDP port (defaults to this socket's port)
      */
-    public function discoverNodes(?port:Int):Void {
+    private function discoverNodes(?port:Int):Void {
         var targetPort = port != null ? port : this.port;
         #if (cpp || neko)
             var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();

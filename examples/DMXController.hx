@@ -14,8 +14,8 @@ class DMXController {
         // Set up event listeners to handle incoming Art-Net traffic
         setupEventHandlers();
 
-        // Discover Art-Net nodes on the network
-        discoverNodes();
+        // Note: ArtPoll discovery is currently not supported due to UDP broadcast reception limitations
+        // discoverNodes() method exists but is private and non-functional
 
         // Start sending DMX data
         startDMXOutput();
@@ -28,8 +28,8 @@ class DMXController {
         // Handle incoming DMX data (from other controllers or nodes)
         socket.addEventListener(ArtNetSocket.ARTDMX, onDMXReceived);
 
-        // Handle node discovery responses (learn about available DMX nodes/fixtures)
-        socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, onNodeDiscovered);
+        // Note: ARTPOLLREPLY events are not supported due to UDP broadcast reception limitations
+        // socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, onNodeDiscovered);
 
         // Handle raw/unknown Art-Net packets for debugging
         socket.addEventListener(ArtNetSocket.DATA, onRawDataReceived);
@@ -76,6 +76,9 @@ class DMXController {
     /**
      * Event handler: Process node discovery responses
      * Build a registry of available Art-Net devices on the network
+     * 
+     * NOTE: This method is kept for reference but ARTPOLLREPLY events are not 
+     * supported due to UDP broadcast reception limitations in Haxe's sys.net.UdpSocket.
      */
     private function onNodeDiscovered(event:ArtPollReplyEvent):Void {
         var node = event.packet;
@@ -127,17 +130,15 @@ class DMXController {
     }
 
     /**
-     * Discover Art-Net nodes on the network by sending ArtPoll (cpp/neko only)
+     * Node discovery is currently not supported due to UDP broadcast reception limitations.
+     * The discoverNodes() method exists but is private and non-functional.
      */
     private function discoverNodes():Void {
-        #if (cpp || neko)
-            trace("Broadcasting ArtPoll to discover nodes...");
-            
-            // Use discoverNodes for true UDP broadcast (cpp/neko targets only)
-            socket.discoverNodes();
-        #else
-            trace("ArtPoll discovery not supported on this target - use cpp or neko");
-        #end
+        trace("ArtPoll discovery is currently not supported due to UDP broadcast reception limitations");
+        trace("The underlying Haxe sys.net.UdpSocket cannot receive broadcast responses (ArtPollReply)");
+        
+        // The private discoverNodes() method in ArtNetSocket can send ArtPoll but cannot receive replies
+        // socket.discoverNodes(); // This is now private and non-functional
     }
 
     /**

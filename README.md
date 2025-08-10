@@ -9,12 +9,14 @@ Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR
 ---
 
 **Features:**
-- Simple DMX send/receive (ArtDMX, ArtPoll, ArtPollReply)
+- Simple DMX send/receive (ArtDMX)
 - Automatic network config (subnet, broadcast)
 - Event-driven protocol parsing
 - Typed packets and helpers
 - Persistent DMX buffer mode for efficient sparse channel updates
 - Exposed DEFAULT_PORT constant (6454) for Art-Net standard port
+
+**Note:** ArtPoll / ArtPollReply discovery is currently not supported due to limitations with UDP broadcast reception in Haxe's sys.net.UdpSocket.
 
 ## Installation
 
@@ -41,17 +43,8 @@ socket.addEventListener(ArtNetSocket.ARTDMX, function(event) {
     for (i in 0...8) trace(event.packet.data.readUnsignedByte());
 });
 
-// Listen for Art-Net Poll responses (ArtPollReply packets)
-socket.addEventListener(ArtNetSocket.ARTPOLLREPLY, function(event) {
-    trace('Art-Net node discovered at ${event.host}:${event.port}');
-    trace('Short name: ' + event.packet.shortName);
-    trace('Long name: ' + event.packet.longName);
-    trace('IP: ' + event.packet.ip);
-    // You may want to store node info, send DMX, etc.
-});
-
-// Discover Art-Net nodes on the local network (cpp/neko targets only)
-socket.discoverNodes();
+// Note: ArtPoll discovery is currently not supported due to UDP broadcast reception limitations
+// Art-Net Poll responses (ArtPollReply packets) cannot be received with Haxe's sys.net.UdpSocket
 
 // Send DMX (channels 1,2,3 set to 255,128,64)
 var pkt = socket.makeDMXFromArray([255, 128, 64]);
@@ -149,9 +142,10 @@ Use `null` or `-1` to indicate "no change" to a channel when updating with array
 ## Event Types
 
 - **ArtNetSocket.ARTDMX**: `ArtDMXEvent` - DMX packet received.
-- **ArtNetSocket.ARTPOLLREPLY**: `ArtPollReplyEvent` - PollReply packet received.
 - **ArtNetSocket.DATA**: `ArtNetDataEvent` - Raw UDP data received.
 - **ArtNetSocket.ERROR**: `ArtNetErrorEvent` - Error occurred.
+
+**Note:** ArtNetSocket.ARTPOLLREPLY events are not supported due to UDP broadcast reception limitations.
 
 ---
 
@@ -207,7 +201,7 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 - Java, Android, and iOS support is untested in production; please report your results or PRs!
 
 **ArtPoll Discovery Support:**
-- `discoverNodes()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
+- ArtPoll / ArtPollReply discovery is **currently not supported** due to limitations with UDP broadcast reception in Haxe's sys.net.UdpSocket
 
 **DMX Broadcasting Support:**
 - `broadcastDMX()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
@@ -232,12 +226,12 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 This library is designed to interoperate with all mainstream Art-Net II, III, and IV hardware and software for standard DMX data and network discovery.
 
 - **ArtDMX:** Fully supported for all Art-Net 2, 3, and 4 nodes and controllers. The packet structure follows the core Art-Net specification and will be understood by all compliant devices.
-- **ArtPoll & ArtPollReply:** Discovery (sending ArtPoll, receiving and parsing ArtPollReply) matches the protocol standards from Art-Net 2 forward. Essential node details (IP, names, universes, etc.)[...]
+- **ArtPoll & ArtPollReply:** Discovery is currently not supported due to limitations with UDP broadcast reception in Haxe's sys.net.UdpSocket. While ArtPoll packets can be sent, ArtPollReply responses cannot be received.
 - **Protocol Versioning:** The library uses protocol version 14 (Art-Net 4) by default; all Art-Net 2/3/4 nodes will interoperate correctly.
 - **Limitations:** Advanced Art-Net 4 features (such as IPv6 support, extended diagnostics, or support for extra-large universe counts) are not explicitly implemented. The core features implemented he[...]
 
 **Summary:**  
-For standard DMX transport and node discovery, this library is compatible with any Art-Net 2/3/4 node or controller you are likely to encounter.
+For standard DMX transport, this library is compatible with any Art-Net 2/3/4 node or controller you are likely to encounter. Node discovery via ArtPoll is currently not supported.
 
 ---
 
