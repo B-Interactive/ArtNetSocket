@@ -10,7 +10,6 @@ Uses OpenFL's DatagramSocket for all supported targets (cpp, hashlink, neko, AIR
 
 **Features:**
 - Simple DMX send/receive (ArtDMX)
-- Automatic network config (subnet, broadcast)
 - Event-driven protocol parsing
 - Typed packets and helpers
 - Persistent DMX buffer mode for efficient sparse channel updates
