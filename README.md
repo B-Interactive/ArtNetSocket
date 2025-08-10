@@ -185,22 +185,23 @@ This library is designed for use with OpenFL (Haxe 4.0.0 or newer) and supports 
 
 | Target         | Status         | Notes                                                         |
 |----------------|---------------|---------------------------------------------------------------|
-| neko           | ✅ Supported   | Uses `sys.net.UdpSocket` and polling thread                  |
-| hl             | ✅ Supported   | Uses `sys.net.UdpSocket` and polling thread                  |
-| cpp            | ✅ Supported   | Uses `sys.net.UdpSocket` and polling thread                  |
-| flash/AIR      | ✅ Supported   | Uses `openfl.net.DatagramSocket` (event-driven)              |
+| neko           | ✅ Fully Supported | Full support for ArtNetSocket.sendDMX() and ArtNetSocket.broadcastDMX() |
+| cpp            | ✅ Fully Supported | Full support for ArtNetSocket.sendDMX() and ArtNetSocket.broadcastDMX() |
+| hl             | ⚠️ Partial      | ArtNetSocket.sendDMX() is supported, but broadcastDMX() is **not supported** |
+| flash/AIR      | ⚠️ Partial      | ArtNetSocket.sendDMX() is supported. AIR 51.0.0 adds broadcast support, but OpenFL/Haxe utilization is **uncertain**—please verify for your setup. |
 | js (HTML5)     | ❌ Not supported | Browsers block UDP sockets                                  |
 | java           | ⚠️ Untested    | Should work if `sys.net.UdpSocket` is available; platform bugs may exist |
 | android/ios    | ⚠️ Untested    | May require permissions and additional setup                 |
 
 **Notes:**
-- Native desktop targets (neko, hl, cpp) use a background polling thread for UDP receive.
-- Flash/AIR targets use OpenFL’s event-driven DatagramSocket.
+- Native desktop targets (neko, cpp) have full DMX send and broadcast support.
+- HashLink does not support UDP broadcast.
+- AIR/Flash may support broadcast with AIR 51.0.0+, but OpenFL/Haxe integration is not confirmed.
+- Java, Android, and iOS support remains untested.
 - JavaScript/HTML5 targets are not supported due to browser security restrictions on UDP.
-- Java, Android, and iOS support is untested in production; please report your results or PRs!
 
 **ArtPoll Discovery Support:**
-- ArtPoll / ArtPollReply discovery is **currently not supported** due to limitations with UDP broadcast reception in Haxe's sys.net.UdpSocket
+- ArtPoll / ArtPollReply discovery is **currently not supported** due to limitations with UDP broadcast reception in Haxe's sys.net.UdpSocket.
 
 **DMX Broadcasting Support:**
 - `broadcastDMX()`: True UDP broadcast to 255.255.255.255 - **only supported on cpp and neko targets**
