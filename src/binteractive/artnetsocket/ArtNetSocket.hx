@@ -46,7 +46,7 @@ class ArtNetSocket extends EventDispatcher {
     public var port(get, never):Int;
     private function get_port():Int { return _port; }
     public var address(get, never):String;
-    private function get_address():String { return _address; }
+    private function get_address():String { return socket.bound ? socket.localAddress : _address; }
     
     private var dmxBuffer:Array<Int>;  // Persistent DMX buffer for retaining channel values
 
@@ -142,9 +142,9 @@ class ArtNetSocket extends EventDispatcher {
 			broadcastAddress.host = new Host("255.255.255.255").ip;
 			broadcastAddress.port = targetPort;
 
-            try {                
+            try {
                 udpSocket.setBroadcast(true);
-                udpSocket.bind(new Host(this._address), 0);                
+                udpSocket.bind(new Host(this.address), 0);                
                 udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);
                 udpSocket.close();
             } catch (e:Dynamic) {
