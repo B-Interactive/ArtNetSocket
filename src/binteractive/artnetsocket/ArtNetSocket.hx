@@ -9,18 +9,20 @@ import binteractive.artnetsocket.ArtNetSocketEvents;
 import binteractive.artnetsocket.ArtNetTypes;
 import binteractive.artnetsocket.ArtNetProtocolUtil;
 import binteractive.artnetsocket.ArtNetNetworkUtil;
+import sys.net.Address;
+import sys.net.Host;
+import sys.net.UdpSocket;
 
 /**
  * ArtNetSocket
  *
  * Handles Art-Net UDP communication for DMX lighting control.
  * - Binds to a local UDP port for receiving/sending Art-Net packets.
- * - Supports sending ArtDMX packets, broadcasting DMX (simulated), and ArtPoll (discovery).
+ * - Supports sending ArtDMX packets, broadcasting DMX (on cpp/neko only), and ArtPoll discovery (on cpp/neko only).
  * - Exposes event-based API for integration with OpenFL/Haxe projects.
  *
- * NOTE: Broadcast is simulated for maximum compatibility, sending packets
- * to each IP in the local subnet. This is because OpenFL's DatagramSocket
- * does not reliably support true UDP broadcast on all platforms.
+ * NOTE: DMX and ArtPoll broadcasting use native UDP broadcast on cpp/neko targets.
+ * On other targets, broadcast operations will throw an error as they are not supported.
  */
 class ArtNetSocket extends EventDispatcher {
     // Event type constants for listeners.
@@ -28,14 +30,23 @@ class ArtNetSocket extends EventDispatcher {
     public static inline var ARTPOLLREPLY:String = "artpollreply";
     public static inline var DATA:String = "data";
     public static inline var ERROR:String = "error";
+    
+    // Default Art-Net UDP port
+    public static inline var DEFAULT_PORT:Int = 6454;
 
     private var socket:DatagramSocket; // UDP socket for Art-Net communication
-    private var port:Int;              // UDP port to bind
-    private var address:String;        // Local address to bind
+    private var _port:Int;             // UDP port to bind
+    private var _address:String;        // Local address to bind
 
     public var defaultUniverse:Int;    // Default Art-Net universe for DMX packets
     public var defaultLength:Int;      // Default DMX packet length
     public var persistentDMX:Bool;     // Whether to use persistent DMX buffering (default true)
+    
+    // Public getters for port and address
+    public var port(get, never):Int;
+    private function get_port():Int { return _port; }
+    public var address(get, never):String;
+    private function get_address():String { return socket.bound ? socket.localAddress : _address; }
     
     private var dmxBuffer:Array<Int>;  // Persistent DMX buffer for retaining channel values
 
@@ -48,8 +59,8 @@ class ArtNetSocket extends EventDispatcher {
      */
     public function new(?address:String, ?port:Int, ?defaultUniverse:Int, ?defaultLength:Int) {
         super();
-        this.address = address != null ? address : "0.0.0.0";
-        this.port = port != null ? port : 6454;
+        this._address = address != null ? address : "0.0.0.0";
+        this._port = port != null ? port : DEFAULT_PORT;
         this.defaultUniverse = defaultUniverse != null ? defaultUniverse : 0;
         this.defaultLength = defaultLength != null ? defaultLength : 512;
         this.persistentDMX = true; // Default to persistent DMX buffering
@@ -72,7 +83,7 @@ class ArtNetSocket extends EventDispatcher {
         socket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 
         try {
-            socket.bind(this.port, this.address);
+            socket.bind(this._port, this._address);
             socket.receive();
         } catch (e:Dynamic) {
             dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to bind DatagramSocket: " + Std.string(e)));
@@ -100,106 +111,86 @@ class ArtNetSocket extends EventDispatcher {
      * Sends an ArtDMX packet to a specific IP address.
      * @param pkt ArtDMXPacket structure (created via makeDMXFromArray, makeDMXFromMap, or makeDMXFromByteArray)
      * @param host Target IP address
-     * @param port Target UDP port (default 6454)
+     * @param port Target UDP port (defaults to this socket's port)
      */
-    public function sendDMX(pkt:ArtDMXPacket, host:String, port:Int = 6454):Void {
+    public function sendDMX(pkt:ArtDMXPacket, host:String, ?port:Int):Void {
         if (socket == null) return;
+        var targetPort = port != null ? port : this.port;
         var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
         try {
-            socket.send(bytes, host, port);
+            socket.send(bytes, host, targetPort);
         } catch (e:Dynamic) {
             dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send DMX packet: " + Std.string(e)));
         }
     }
 
     /**
-     * Simulates broadcast of an ArtDMX packet by sending to each host in the local subnet.
-     * This works around unreliable platform broadcast support.
+     * Broadcasts an ArtDMX packet via UDP broadcast to 255.255.255.255.
+     * For cpp and neko targets, uses sys.net.UdpSocket directly for true UDP broadcast.
+     * For all other targets, throws an error as UDP broadcast is not supported.
      * @param pkt ArtDMXPacket structure
-     * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
+     * @param port Target UDP port (defaults to this socket's port)
      */
-    public function broadcastDMX(pkt:ArtDMXPacket, port:Int = 6454, ?subnetPrefix:String):Void {
-        if (socket == null) return;
-        var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
+    public function broadcastDMX(pkt:ArtDMXPacket, ?port:Int):Void {
+        var targetPort = port != null ? port : this.port;
+        #if (cpp || neko)
+            var bytes:ByteArray = ArtNetProtocolUtil.encodeDMX(pkt);
+            var udpSocket = new sys.net.UdpSocket();
+            
+            // Set up the destination broadcast address
+			var broadcastAddress = new Address();
+			broadcastAddress.host = new Host("255.255.255.255").ip;
+			broadcastAddress.port = targetPort;
 
-        // Determine subnet prefix (default: using first local IPv4 address)
-        var subnet = subnetPrefix;
-        if (subnet == null) {
-            var ips = ArtNetNetworkUtil.getLocalIPv4s();
-            if (ips.length > 0) {
-                var ipParts = ips[0].split(".");
-                if (ipParts.length == 4) {
-                    subnet = ipParts[0] + "." + ipParts[1] + "." + ipParts[2] + ".";
-                }
+            try {
+                udpSocket.setBroadcast(true);
+                udpSocket.bind(new Host(this.address), 0);                
+                udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);
+                udpSocket.close();
+            } catch (e:Dynamic) {
+                if (udpSocket != null) udpSocket.close();
+                dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to broadcast DMX packet: " + Std.string(e)));
             }
-        }
-        if (subnet == null) subnet = "192.168.1.";
-
-        // Send DMX to each IP in the subnet (1-254)
-        for (i in 1...255) {
-            var target = subnet + i;
-            // Optionally skip sending to own IP
-            if (target != this.address) {
-                try {
-                    socket.send(bytes, target, port);
-                } catch (e:Dynamic) {
-                    // Ignore errors for unreachable hosts
-                }
-            }
-        }
+        #else
+            dispatchEvent(new ArtNetErrorEvent(ERROR, "DMX broadcast (broadcastDMX) is only supported on cpp and neko targets."));
+        #end
     }
 
-    /**
-     * Simulates broadcast of an ArtPoll packet by sending to each host in the local subnet.
-     * This works around unreliable platform broadcast support.
-     * @param port Target UDP port (default 6454)
-     * @param subnetPrefix Optional subnet prefix (e.g., "192.168.1.") for custom broadcast range
-     */
-    public function broadcastPoll(port:Int = 6454, ?subnetPrefix:String):Void {
-        if (socket == null) return;
-        var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
 
-        // Determine subnet prefix (default: using first local IPv4 address)
-        var subnet = subnetPrefix;
-        if (subnet == null) {
-            var ips = ArtNetNetworkUtil.getLocalIPv4s();
-            if (ips.length > 0) {
-                var ipParts = ips[0].split(".");
-                if (ipParts.length == 4) {
-                    subnet = ipParts[0] + "." + ipParts[1] + "." + ipParts[2] + ".";
-                }
-            }
-        }
-        if (subnet == null) subnet = "192.168.1.";
-
-        // Send ArtPoll to each IP in the subnet (1-254)
-        for (i in 1...255) {
-            var target = subnet + i;
-            if (target != this.address) {
-                try {
-                    socket.send(bytes, target, port);
-                } catch (e:Dynamic) {
-                    // Ignore errors for unreachable hosts
-                }
-            }
-        }
-    }
 
     /**
-     * Sends an ArtPoll packet (legacy, single address: broadcast)
-     * Provided for API compatibility, but may not work on all platforms.
-     * Prefer broadcastPoll for reliability.
-     * @param port Target UDP port (default 6454)
+     * Discovers Art-Net nodes by sending an ArtPoll packet via UDP broadcast to 255.255.255.255.
+     * For cpp and neko targets, uses sys.net.UdpSocket directly for true UDP broadcast.
+     * For all other targets, throws an error as UDP broadcast is not supported.
+     * 
+     * NOTE: This method is private as receiving UDP broadcast responses is not 
+     * supported with Haxe's sys.net.UdpSocket, making ArtPoll discovery non-functional.
+     * 
+     * @param port Target UDP port (defaults to this socket's port)
      */
-    public function sendPoll(port:Int = 6454):Void {
-        if (socket == null) return;
-        var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
-        try {
-            socket.send(bytes, "255.255.255.255", port);
-        } catch (e:Dynamic) {
-            dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send ArtPoll packet: " + Std.string(e)));
-        }
+    private function discoverNodes(?port:Int):Void {
+        var targetPort = port != null ? port : this.port;
+        #if (cpp || neko)
+            var bytes:ByteArray = ArtNetProtocolUtil.encodePoll();
+            var udpSocket = new sys.net.UdpSocket();
+
+            // Set up the destination broadcast address
+			var broadcastAddress = new Address();
+			broadcastAddress.host = new Host("255.255.255.255").ip;
+			broadcastAddress.port = targetPort;
+
+            try {
+                udpSocket.setBroadcast(true);
+                udpSocket.bind(new Host(this._address), 0);                
+                udpSocket.sendTo(cast bytes, 0, bytes.length, broadcastAddress);                
+                udpSocket.close();
+            } catch (e:Dynamic) {
+                if (udpSocket != null) udpSocket.close();
+                dispatchEvent(new ArtNetErrorEvent(ERROR, "Failed to send ArtPoll broadcast: " + Std.string(e)));
+            }
+        #else
+            dispatchEvent(new ArtNetErrorEvent(ERROR, "ArtPoll broadcast (discoverNodes) is only supported on cpp and neko targets."));
+        #end
     }
 
     /**
