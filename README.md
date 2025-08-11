@@ -122,20 +122,6 @@ channelMap.set(10, 255);
 var pkt = socket.makeDMXFromMap(channelMap); // Channel 10 = 255, all others = 0
 ```
 
-### Migration from makeDMXPacket
-
-**Breaking Change**: The previous `makeDMXPacket(input:Dynamic, ...)` method has been replaced with three explicit methods for better type safety:
-
-- `makeDMXPacket([1,2,3])` → `makeDMXFromArray([1,2,3])`
-- `makeDMXPacket(myMap)` → `makeDMXFromMap(myMap)`  
-- `makeDMXPacket(myByteArray)` → `makeDMXFromByteArray(myByteArray)`
-
-All methods retain the same optional `universe` and `length` parameters and behavior.
-
-**Tip:**  
-Use persistent mode for efficient, incremental updates to DMX universes—especially useful for real-time and interactive applications.  
-Use `null` or `-1` to indicate "no change" to a channel when updating with arrays or objects in persistent mode.
-
 ---
 
 ## Event Types
