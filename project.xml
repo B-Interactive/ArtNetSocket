@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+
+	<meta title="ArtNetSocket" package="" version="1.0.0" company="" />
+	<app main="binteractive.artnetsocket.ArtNetSocket" file="ArtNetSocket" path="bin" />
+
+	<source path="src" />
+	<haxelib name="openfl" />
+
+</project>

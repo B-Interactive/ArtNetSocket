@@ -6,32 +6,32 @@ import openfl.utils.ByteArray;
  * Art-Net DMX Packet structure.
  */
 typedef ArtDMXPacket = {
-    var protocolVersion:Int;
-    var sequence:Int;
-    var physical:Int;
-    var universe:Int;
-    var length:Int;
-    var data:ByteArray;
+	var protocolVersion:Int;
+	var sequence:Int;
+	var physical:Int;
+	var universe:Int;
+	var length:Int;
+	var data:ByteArray;
 }
 
 /**
  * Art-Net PollReply Packet structure.
  */
 typedef ArtPollReplyPacket = {
-    var ip:String;
-    var port:Int;
-    var version:Int;
-    var shortName:String;
-    var longName:String;
-    var nodeReport:String;
-    var oem:Int;
-    var numPorts:Int;
-    var portTypes:Array<Int>;
-    var goodInput:Array<Int>;
-    var goodOutput:Array<Int>;
-    var swIn:Array<Int>;
-    var swOut:Array<Int>;
-    var mac:Array<Int>;
-    var bindIp:String;
-    var style:Int;
+	var ip:String;
+	var port:Int;
+	var version:Int;
+	var shortName:String;
+	var longName:String;
+	var nodeReport:String;
+	var oem:Int;
+	var numPorts:Int;
+	var portTypes:Array<Int>;
+	var goodInput:Array<Int>;
+	var goodOutput:Array<Int>;
+	var swIn:Array<Int>;
+	var swOut:Array<Int>;
+	var mac:Array<Int>;
+	var bindIp:String;
+	var style:Int;
 }

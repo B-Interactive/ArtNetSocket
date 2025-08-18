@@ -8,10 +8,11 @@ import openfl.events.EventDispatcher;
 import binteractive.artnetsocket.ArtNetSocketEvents;
 import binteractive.artnetsocket.ArtNetTypes;
 import binteractive.artnetsocket.ArtNetProtocolUtil;
-import binteractive.artnetsocket.ArtNetNetworkUtil;
+#if sys
 import sys.net.Address;
 import sys.net.Host;
 import sys.net.UdpSocket;
+#end
 
 /**
  * ArtNetSocket
